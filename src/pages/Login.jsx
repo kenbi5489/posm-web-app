@@ -104,7 +104,7 @@ const Login = () => {
         </form>
 
         <p className="text-center text-slate-400 text-xs font-bold tracking-widest uppercase">
-          &copy; 2026 Field Support Team
+          &copy; Copyright by Nguyễn Trí Đức
         </p>
       </motion.div>
     </div>
