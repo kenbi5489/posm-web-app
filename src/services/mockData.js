@@ -1,10 +1,10 @@
 export const mockUsers = [
-  { user_id: 'USER001', user_name: 'admin', password: 'Admin@2026', ho_ten: 'Admin', role: 'admin', email: 'admin@posm.vn', active: 'TRUE' },
-  { user_id: 'USER002', user_name: 'le.anhtuan', password: 'Tuan@2026', ho_ten: 'Lê Anh Tuấn', role: 'staff', email: 'tuan.la@posm.vn', active: 'TRUE' },
-  { user_id: 'USER003', user_name: 'luong.sontung', password: 'Tung@2026', ho_ten: 'Lương Sơn Tùng', role: 'staff', email: 'tung.ls@posm.vn', active: 'TRUE' },
-  { user_id: 'USER004', user_name: 'nguyen.levan', password: 'Van@2026', ho_ten: 'Nguyễn Lê Văn', role: 'staff', email: 'van.nl@posm.vn', active: 'TRUE' },
-  { user_id: 'USER005', user_name: 'nguyen.hoangtuan', password: 'HoangTuan@2026', ho_ten: 'Nguyễn Hoàng Tuấn', role: 'staff', email: 'tuan.nh@posm.vn', active: 'TRUE' },
-  { user_id: 'USER006', user_name: 'truong.trongtan', password: 'Tan@2026', ho_ten: 'Trương Trọng Tân', role: 'staff', email: 'tan.tt@posm.vn', active: 'TRUE' }
+  { user_id: 'USER001', user_name: 'admin', password: 'Admin@2026', ho_ten: 'Admin', role: 'admin', email: 'duc.nt@urbox.vn', active: 'TRUE' },
+  { user_id: 'USER002', user_name: 'le.anhtuan', password: 'Tuan@2026', ho_ten: 'Lê Anh Tuấn', role: 'staff', email: 'tuan.la@urbox.vn', active: 'TRUE' },
+  { user_id: 'USER003', user_name: 'luong.sontung', password: 'Tung@2026', ho_ten: 'Lương Sơn Tùng', role: 'staff', email: 'tung.ls@urbox.vn', active: 'TRUE' },
+  { user_id: 'USER004', user_name: 'nguyen.levan', password: 'Van@2026', ho_ten: 'Nguyễn Lê Văn', role: 'staff', email: 'van.nl@urbox.vn', active: 'TRUE' },
+  { user_id: 'USER005', user_name: 'nguyen.hoangtuan', password: 'HoangTuan@2026', ho_ten: 'Nguyễn Hoàng Tuấn', role: 'staff', email: 'tuan.nh@urbox.vn', active: 'TRUE' },
+  { user_id: 'USER006', user_name: 'truong.trongtan', password: 'Tan@2026', ho_ten: 'Trương Trọng Tân', role: 'staff', email: 'tan.tt@urbox.vn', active: 'TRUE' }
 ];
 
 export const mockPOSMData = [
