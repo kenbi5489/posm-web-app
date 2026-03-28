@@ -36,7 +36,7 @@ export const fetchSheetData = async (gid, fallbackData) => {
 };
 
 export const fetchUsers = async () => mockUsers;
-export const fetchPOSMData = () => fetchSheetData(GID_DATA, mockPOSMData);
+export const fetchPOSMData = async () => mockPOSMData;
 export const fetchAcceptanceData = () => fetchSheetData(GID_ACCEPTANCE, []);
 
 export const updatePOSMStatus = async (scriptUrl, payload) => {
