@@ -6,17 +6,31 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ListView from './pages/ListView';
 import LocationDetail from './pages/LocationDetail';
-
-// Placeholder Pages
 import MapView from './pages/MapView';
 import DistrictSummary from './pages/DistrictSummary';
 import AdminDashboard from './pages/AdminDashboard';
+import { usePWA } from './hooks/usePWA';
+import { masterReset } from './services/db';
 
-// Use a placeholder or environment variable for the API Key
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''; 
+
+const ProfileField = ({ label, value }) => (
+  <div className="relative pl-4 border-l-4 border-primary/20">
+    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{label}</span>
+    <span className="text-sm font-bold text-slate-700">{value || 'N/A'}</span>
+  </div>
+);
+
+const PrivateRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  return user ? children : <Navigate to="/login" />;
+};
 
 const Profile = () => {
   const { logout, user } = useAuth();
+  const { installPrompt, isInstalled, installApp } = usePWA();
+  
   return (
     <div className="p-6 space-y-6 animate-fade-in">
       <div className="bg-white p-8 rounded-[2.5rem] shadow-premium border border-slate-50 relative overflow-hidden">
@@ -38,27 +52,37 @@ const Profile = () => {
         </div>
       </div>
 
-      <button 
-        onClick={logout}
-        className="w-full bg-white text-red-500 font-black py-6 rounded-3xl border border-red-50 shadow-soft active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
-      >
-        Đăng xuất tài khoản
-      </button>
+      <div className="space-y-3">
+        {installPrompt && !isInstalled && (
+          <button 
+            onClick={installApp}
+            className="w-full bg-primary text-white font-black py-5 rounded-3xl shadow-premium active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-1 uppercase tracking-widest text-sm"
+          >
+            <span>Tải ứng dụng về máy</span>
+            <span className="text-[10px] opacity-70 normal-case font-normal">(Cài đặt như App điện thoại)</span>
+          </button>
+        )}
+
+        <button 
+          onClick={logout}
+          className="w-full bg-white text-red-500 font-black py-5 rounded-3xl border border-red-50 shadow-soft active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
+        >
+          Đăng xuất tài khoản
+        </button>
+
+        <button 
+          onClick={() => {
+            if(window.confirm('CẢNH BÁO: Thao tác này sẽ xóa sạch toàn bộ dữ liệu lưu trên máy và tải lại từ đầu. Bạn có chắc chắn muốn RESET không?')) {
+              masterReset();
+            }
+          }}
+          className="w-full bg-slate-50 text-slate-400 font-bold py-5 rounded-3xl active:scale-[0.98] transition-all flex items-center justify-center gap-2 uppercase tracking-widest text-[10px]"
+        >
+          Reset hệ thống & Xóa bộ nhớ đệm
+        </button>
+      </div>
     </div>
   );
-};
-
-const ProfileField = ({ label, value }) => (
-  <div className="relative pl-4 border-l-4 border-primary/20">
-    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{label}</span>
-    <span className="text-sm font-bold text-slate-700">{value || 'N/A'}</span>
-  </div>
-);
-
-const PrivateRoute = ({ children }) => {
-  const { user, loading } = useAuth();
-  if (loading) return null;
-  return user ? children : <Navigate to="/login" />;
 };
 
 function App() {

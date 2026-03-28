@@ -7,7 +7,7 @@ import { fetchUsers } from '../services/api';
 
 const AppLayout = () => {
   const { user, selectedStaff, selectStaff } = useAuth();
-  const { syncing } = useSync(user);
+  const { syncing, pullData } = useSync(user);
   const [allStaff, setAllStaff] = useState([]);
   const isAdmin = user?.role === 'admin';
 
@@ -30,10 +30,16 @@ const AppLayout = () => {
               {isAdmin && selectedStaff ? selectedStaff.ho_ten : user?.ho_ten}
             </h1>
           </div>
-          <div className="flex items-center gap-2">
-            {syncing && (
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" title="Đang đồng bộ" />
-            )}
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => pullData()}
+              disabled={syncing}
+              className={`p-2 rounded-xl transition-all ${syncing ? 'animate-spin text-blue-500' : 'text-slate-400 hover:bg-slate-50'}`}
+              title="Đồng bộ lại"
+            >
+              <Users size={20} className={syncing ? 'hidden' : 'block'} />
+              {syncing && <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
+            </button>
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black shadow-soft ${isAdmin ? 'bg-indigo-600 text-white' : 'bg-primary/10 text-primary'}`}>
               {(selectedStaff?.ho_ten || user?.ho_ten)?.charAt(0)}
             </div>

@@ -11,13 +11,19 @@ export const AuthProvider = ({ children }) => {
   const [lastSync, setLastSync] = useState(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('posm_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    const savedStaff = localStorage.getItem('selected_staff');
-    if (savedStaff) {
-      setSelectedStaff(JSON.parse(savedStaff));
+    try {
+      const savedUser = localStorage.getItem('posm_user');
+      if (savedUser && savedUser !== 'undefined') {
+        setUser(JSON.parse(savedUser));
+      }
+      const savedStaff = localStorage.getItem('selected_staff');
+      if (savedStaff && savedStaff !== 'undefined') {
+        setSelectedStaff(JSON.parse(savedStaff));
+      }
+    } catch (e) {
+      console.error("Failed to load saved state:", e);
+      localStorage.removeItem('posm_user');
+      localStorage.removeItem('selected_staff');
     }
     setLoading(false);
   }, []);

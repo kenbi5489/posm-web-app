@@ -13,9 +13,11 @@ export default defineConfig({
         name: 'POSM Tracker',
         short_name: 'POSM',
         description: 'Quản lý kiểm tra điểm POSM',
-        theme_color: '#1565C0',
-        background_color: '#1565C0',
+        theme_color: '#ffffff',
+        background_color: '#ffffff',
         display: 'standalone',
+        start_url: '/',
+        scope: '/',
         orientation: 'portrait',
         icons: [
           {
@@ -27,6 +29,12 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
           },
           {
             src: 'pwa-512x512.png',

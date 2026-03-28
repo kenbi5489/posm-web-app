@@ -7,45 +7,53 @@ import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user, selectedStaff, lastSync } = useAuth();
-  const [stats, setStats] = useState({
-    total: 0,
-    done: 0,
-    pending: 0,
-    percent: 0
-  });
   const [week, setWeek] = useState('All');
   const [brand, setBrand] = useState('All');
-  const [weeks, setWeeks] = useState([]);
-  const [brands, setBrands] = useState([]);
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadStats = async () => {
-      let data = await db.posmData.toArray();
-      const picId = selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null);
-      const staffName = selectedStaff?.ho_ten || (user.role === 'staff' ? user.ho_ten : null);
-      
-      if (picId) {
-        data = data.filter(item => item.pic_id === picId || item.pic === staffName);
-      }
-      
-      const uniqueWeeks = [...new Set(data.map(i => i.week))].filter(Boolean).sort();
-      setWeeks(uniqueWeeks);
-      const uniqueBrands = [...new Set(data.map(i => i.brand))].filter(Boolean).sort();
-      setBrands(uniqueBrands);
-
-      if (week !== 'All') data = data.filter(i => i.week === week);
-      if (brand !== 'All') data = data.filter(i => i.brand === brand);
-      
-      const total = data.length;
-      const done = data.filter(item => item.status === 'Done').length;
-      const pending = total - done;
-      const percent = total > 0 ? Math.round((done / total) * 100) : 0;
-
-      setStats({ total, done, pending, percent });
+    const loadData = async () => {
+      setLoading(true);
+      const allData = await db.posmData.toArray();
+      setData(allData);
+      setLoading(false);
     };
+    loadData();
+  }, [lastSync]);
 
-    loadStats();
-  }, [user, selectedStaff, lastSync, week, brand]);
+  const { stats, uniqueWeeks, uniqueBrands } = React.useMemo(() => {
+    const picId = selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null);
+    const staffName = selectedStaff?.ho_ten || (user.role === 'staff' ? user.ho_ten : null);
+    
+    let baseData = data;
+    if (picId) {
+      baseData = data.filter(item => item.pic_id === picId || item.pic === staffName);
+    }
+
+    const uWeeks = [...new Set(baseData.map(i => i.week))].filter(Boolean).sort();
+    const uBrands = [...new Set(baseData.map(i => i.brand))].filter(Boolean).sort();
+
+    let finalData = baseData;
+    if (week !== 'All') finalData = finalData.filter(i => i.week === week);
+    if (brand !== 'All') finalData = finalData.filter(i => i.brand === brand);
+
+    const total = finalData.length;
+    const done = finalData.filter(item => item.status === 'Done').length;
+    
+    return {
+      uniqueWeeks: uWeeks,
+      uniqueBrands: uBrands,
+      stats: {
+        total,
+        done,
+        pending: total - done,
+        percent: total > 0 ? Math.round((done / total) * 100) : 0
+      }
+    };
+  }, [data, user, selectedStaff, week, brand]);
+
+  if (loading) return <div className="p-10 text-center animate-pulse">Đang nạp dữ liệu...</div>;
 
   return (
     <div className="p-6 space-y-8 animate-fade-in">
@@ -57,18 +65,18 @@ const Dashboard = () => {
           className="flex-1 h-12 px-4 bg-white border-none rounded-[1.5rem] shadow-soft text-xs font-black uppercase tracking-tight text-slate-600 focus:ring-0"
         >
           <option value="All">Tuần: Tất cả</option>
-          {weeks.map(w => (
+          {uniqueWeeks.map(w => (
             <option key={w} value={w}>{w}</option>
           ))}
         </select>
-
+ 
         <select 
           value={brand}
           onChange={(e) => setBrand(e.target.value)}
           className="flex-1 h-12 px-4 bg-white border-none rounded-[1.5rem] shadow-soft text-xs font-black uppercase tracking-tight text-slate-600 focus:ring-0 max-w-[50%]"
         >
           <option value="All">Brand: Tất cả</option>
-          {brands.map(b => (
+          {uniqueBrands.map(b => (
             <option key={b} value={b} className="truncate">{b}</option>
           ))}
         </select>

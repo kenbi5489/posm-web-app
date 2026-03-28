@@ -15,6 +15,8 @@ const ListView = () => {
   const [week, setWeek] = useState('All');
   const [weeks, setWeeks] = useState([]);
 
+  const [displayCount, setDisplayCount] = useState(20);
+
   useEffect(() => {
     const loadItems = async () => {
       let data = await db.posmData.toArray();
@@ -50,30 +52,33 @@ const ListView = () => {
       }
 
       setItems(data);
+      setDisplayCount(20); // Reset count when filters change
     };
 
     loadItems();
   }, [user, filter, search, district, week, selectedStaff]);
 
+  const loadMore = () => setDisplayCount(prev => prev + 20);
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-slate-50/30">
       {/* Search & Filters */}
-      <div className="sticky top-[64px] z-20 bg-background px-4 py-4 space-y-3">
+      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md px-4 py-4 space-y-3 shadow-sm">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text"
-            placeholder="Tìm theo Brand hoặc Mã cv..."
+            placeholder="Tìm Brand hoặc Mã..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-12 pr-4 py-4 bg-white border-none rounded-2xl shadow-soft text-sm font-bold placeholder-slate-300 focus:ring-2 focus:ring-primary/10"
           />
         </div>
         
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar">
           <FilterTab active={filter === 'All'} label="Tất cả" onClick={() => setFilter('All')} />
-          <FilterTab active={filter === 'Pending'} label="Chưa xong" onClick={() => setFilter('Pending')} />
-          <FilterTab active={filter === 'Done'} label="Đã xong" onClick={() => setFilter('Done')} />
+          <FilterTab active={filter === 'Pending'} label="Chưa" onClick={() => setFilter('Pending')} />
+          <FilterTab active={filter === 'Done'} label="Xong" onClick={() => setFilter('Done')} />
           
           <div className="h-10 border-r border-slate-200 mx-1 shrink-0" />
           
@@ -82,7 +87,7 @@ const ListView = () => {
             onChange={(e) => setWeek(e.target.value)}
             className="h-10 px-4 bg-white border-none rounded-xl shadow-soft text-xs font-black uppercase tracking-tight text-slate-600 focus:ring-0 shrink-0"
           >
-            <option value="All">Tuần: Tất cả</option>
+            <option value="All">Tuần</option>
             {weeks.map(w => (
               <option key={w} value={w}>{w}</option>
             ))}
@@ -93,7 +98,7 @@ const ListView = () => {
             onChange={(e) => setDistrict(e.target.value)}
             className="h-10 px-4 bg-white border-none rounded-xl shadow-soft text-xs font-black uppercase tracking-tight text-slate-600 focus:ring-0 shrink-0"
           >
-            <option value="All">Quận: Tất cả</option>
+            <option value="All">Quận</option>
             {districts.map(d => (
               <option key={d} value={d}>{d}</option>
             ))}
@@ -102,34 +107,44 @@ const ListView = () => {
       </div>
 
       {/* Stats Header */}
-      <div className="px-5 py-2 flex justify-between items-center bg-slate-100/50">
+      <div className="px-5 py-2.5 flex justify-between items-center bg-white/50 border-b border-slate-100">
         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
           {items.length} điểm {filter !== 'All' ? `(${filter.toLowerCase()})` : ''}
         </span>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
            <div className="flex items-center gap-1 text-done font-bold text-[10px]">
-             <CheckCircle2 size={12} /> {items.filter(i => i.status === 'Done').length}
+             <div className="w-1.5 h-1.5 rounded-full bg-done" /> {items.filter(i => i.status === 'Done').length}
            </div>
            <div className="flex items-center gap-1 text-accent font-bold text-[10px]">
-             <Clock size={12} /> {items.filter(i => i.status !== 'Done').length}
+             <div className="w-1.5 h-1.5 rounded-full bg-accent" /> {items.filter(i => i.status !== 'Done').length}
            </div>
         </div>
       </div>
 
       {/* List */}
-      <div className="p-4 space-y-3">
-        <AnimatePresence>
-          {items.map((item, idx) => (
+      <div className="p-4 space-y-3 pb-32">
+        <AnimatePresence mode='popLayout'>
+          {items.slice(0, displayCount).map((item) => (
             <motion.div
-              key={`${item.job_code}-${idx}`}
-              initial={{ opacity: 0, y: 10 }}
+              key={item.job_code}
+              initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.03 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              layout
             >
               <ListItem item={item} />
             </motion.div>
           ))}
         </AnimatePresence>
+        
+        {items.length > displayCount && (
+          <button 
+            onClick={loadMore}
+            className="w-full py-6 text-[10px] font-black text-primary uppercase tracking-widest bg-white rounded-2xl border-2 border-dashed border-slate-100 active:bg-slate-50 transition-colors"
+          >
+            Xem thêm 20 điểm khác (+{items.length - displayCount} còn lại)
+          </button>
+        )}
         
         {items.length === 0 && (
           <div className="py-20 text-center space-y-4">
