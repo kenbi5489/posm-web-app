@@ -4,11 +4,21 @@ export const usePWA = () => {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
 
+  const [platform, setPlatform] = useState('unknown');
+
   useEffect(() => {
+    // Platform detection
+    const ua = window.navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(ua)) {
+      setPlatform('ios');
+    } else if (/android/.test(ua)) {
+      setPlatform('android');
+    } else {
+      setPlatform('desktop');
+    }
+
     const handleBeforeInstallPrompt = (e) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      // Stash the event so it can be triggered later.
       setInstallPrompt(e);
     };
 
@@ -41,5 +51,5 @@ export const usePWA = () => {
     }
   };
 
-  return { installPrompt, isInstalled, installApp };
+  return { installPrompt, isInstalled, installApp, platform };
 };

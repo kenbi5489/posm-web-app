@@ -27,12 +27,64 @@ const PrivateRoute = ({ children }) => {
   return user ? children : <Navigate to="/login" />;
 };
 
+const ManualInstallGuide = ({ platform }) => {
+  if (platform === 'ios') {
+    return (
+      <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 space-y-3">
+        <h4 className="text-sm font-black text-blue-900 uppercase tracking-wider flex items-center gap-2">
+          <span>📱 Hướng dẫn cài đặt iPhone</span>
+        </h4>
+        <div className="space-y-4 text-xs font-bold text-blue-700 leading-relaxed">
+          <div className="flex gap-3">
+            <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center shrink-0">1</span>
+            <p>Mở bằng trình duyệt <span className="underline">Safari</span></p>
+          </div>
+          <div className="flex gap-3">
+            <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center shrink-0">2</span>
+            <p>Bấm nút <span className="bg-white px-2 py-0.5 rounded shadow-sm">Chia sẻ (Share)</span> ở cạnh dưới màn hình</p>
+          </div>
+          <div className="flex gap-3">
+            <span className="w-5 h-5 bg-blue-500 text-white rounded-full flex items-center justify-center shrink-0">3</span>
+            <p>Chọn <span className="bg-white px-2 py-0.5 rounded shadow-sm">Thêm vào MH chính (Add to Home Screen)</span></p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (platform === 'android') {
+    return (
+      <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 space-y-3">
+        <h4 className="text-sm font-black text-indigo-900 uppercase tracking-wider flex items-center gap-2">
+          <span>🤖 Hướng dẫn cài đặt Android</span>
+        </h4>
+        <div className="space-y-4 text-xs font-bold text-indigo-700 leading-relaxed">
+          <div className="flex gap-3">
+            <span className="w-5 h-5 bg-indigo-500 text-white rounded-full flex items-center justify-center shrink-0">1</span>
+            <p>Mở bằng trình duyệt <span className="underline">Google Chrome</span></p>
+          </div>
+          <div className="flex gap-3">
+            <span className="w-5 h-5 bg-indigo-500 text-white rounded-full flex items-center justify-center shrink-0">2</span>
+            <p>Bấm biểu tượng <span className="bg-white px-2 py-0.5 rounded shadow-sm">3 chấm (⋮)</span> ở góc trên phải</p>
+          </div>
+          <div className="flex gap-3">
+            <span className="w-5 h-5 bg-indigo-500 text-white rounded-full flex items-center justify-center shrink-0">3</span>
+            <p>Chọn <span className="bg-white px-2 py-0.5 rounded shadow-sm">Cài đặt ứng dụng (Install App)</span></p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 const Profile = () => {
   const { logout, user } = useAuth();
-  const { installPrompt, isInstalled, installApp } = usePWA();
+  const { installPrompt, isInstalled, installApp, platform } = usePWA();
   
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
+    <div className="p-6 space-y-6 animate-fade-in pb-20">
       <div className="bg-white p-8 rounded-[2.5rem] shadow-premium border border-slate-50 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl" />
         <div className="flex flex-col items-center text-center space-y-4 pt-4">
@@ -52,15 +104,21 @@ const Profile = () => {
         </div>
       </div>
 
-      <div className="space-y-3">
-        {installPrompt && !isInstalled && (
-          <button 
-            onClick={installApp}
-            className="w-full bg-primary text-white font-black py-5 rounded-3xl shadow-premium active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-1 uppercase tracking-widest text-sm"
-          >
-            <span>Tải ứng dụng về máy</span>
-            <span className="text-[10px] opacity-70 normal-case font-normal">(Cài đặt như App điện thoại)</span>
-          </button>
+      <div className="space-y-4">
+        {!isInstalled && (
+          <div className="space-y-3">
+            {installPrompt ? (
+              <button 
+                onClick={installApp}
+                className="w-full bg-primary text-white font-black py-5 rounded-3xl shadow-premium active:scale-[0.98] transition-all flex flex-col items-center justify-center gap-1 uppercase tracking-widest text-sm"
+              >
+                <span>Tải ứng dụng về máy</span>
+                <span className="text-[10px] opacity-70 normal-case font-normal">(Cài đặt tự động nhanh)</span>
+              </button>
+            ) : (
+              <ManualInstallGuide platform={platform} />
+            )}
+          </div>
         )}
 
         <button 
