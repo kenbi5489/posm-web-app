@@ -23,42 +23,60 @@ export const useSync = (user) => {
       console.log('Sample Row keys:', data.length > 0 ? Object.keys(data[0]) : 'None');
       
       // Helper to find column keys case-insensitively or with partial match
+      // Returns the actual key name from the row, or null if not found
       const findKey = (row, pattern) => {
         const keys = Object.keys(row);
-        return keys.find(k => k.toLowerCase().includes(pattern.toLowerCase())) || pattern;
+        const lower = pattern.toLowerCase();
+        // Try exact match first (case-insensitive)
+        const exact = keys.find(k => k.toLowerCase() === lower);
+        if (exact) return exact;
+        // Then try partial match
+        return keys.find(k => k.toLowerCase().includes(lower)) || null;
+      };
+      
+      const getVal = (row, pattern, fallback = '') => {
+        const key = findKey(row, pattern);
+        return key ? (row[key] ?? fallback) : fallback;
       };
 
       // Transform and Manual Deduplication
       const dedupMap = new Map();
       
       data.forEach(row => {
+        const jobCodeKey = findKey(row, 'Mã cv');
         const keyMap = {
-          jobCode: findKey(row, 'Mã cv'),
+          jobCode: jobCodeKey,
           brand: findKey(row, 'Brand'),
           pic: findKey(row, 'PIC'),
           status: findKey(row, 'Status'),
           picId: findKey(row, 'pic_id')
         };
         
-        const jobCode = row[keyMap.jobCode]?.toString().trim();
+        const jobCode = keyMap.jobCode ? row[keyMap.jobCode]?.toString().trim() : null;
         if (!jobCode || jobCode === "" || jobCode.length < 2) return; // Skip invalid codes
         
+        const latStr = getVal(row, 'latitude') || getVal(row, 'lat') || getVal(row, 'vĩ độ') || getVal(row, 'vi do') || '';
+        const lngStr = getVal(row, 'longitude') || getVal(row, 'lng') || getVal(row, 'kinh độ') || getVal(row, 'kinh do') || '';
+        
+        const latRaw = parseFloat(latStr.toString().replace(',', '.'));
+        const lngRaw = parseFloat(lngStr.toString().replace(',', '.'));
+        
         const item = {
-          week: row[findKey(row, 'Week triển khai')],
-          date_assigned: row[findKey(row, 'Ngày chia')],
-          brand: row[keyMap.brand] || '',
+          week: (getVal(row, 'Week triển khai') || getVal(row, 'Week') || getVal(row, 'Tuần') || '').trim(),
+          date_assigned: getVal(row, 'Ngày chia'),
+          brand: (keyMap.brand ? (row[keyMap.brand] || '') : '').trim(),
           job_code: jobCode,
-          address: row[findKey(row, 'Địa chỉ')] || '',
-          ward: row[findKey(row, 'Phường')] || '',
-          district: row[findKey(row, 'Quận')] || '',
-          city: row[findKey(row, 'Thành Phố')] || '',
-          pic: row[keyMap.pic] || '',
-          status: row[keyMap.status] || 'On-going',
-          completion_date: row['Ngày hoàn thành (Typing theo thứ tự: Tháng/Ngày/Năm)'] || row['Ngày hoàn thành'] || '',
-          portal_id: row[findKey(row, 'Tài khoản Portal')] || '',
-          lat: parseFloat(row[findKey(row, 'latitude')]) || 0,
-          lng: parseFloat(row[findKey(row, 'longitude')]) || 0,
-          pic_id: row[keyMap.picId]?.toString().trim() || ''
+          address: getVal(row, 'Địa chỉ') || getVal(row, 'Dia chi'),
+          ward: getVal(row, 'Phường') || getVal(row, 'Phuong'),
+          district: getVal(row, 'Quận') || getVal(row, 'Quan'),
+          city: getVal(row, 'Thành Phố') || getVal(row, 'Thanh Pho') || getVal(row, 'City'),
+          pic: (keyMap.pic ? (row[keyMap.pic] || '') : '').trim(),
+          status: (keyMap.status ? (row[keyMap.status] || 'On-going') : 'On-going').trim(),
+          completion_date: getVal(row, 'Ngày hoàn thành') || row['Ngày hoàn thành (Typing theo thứ tự: Tháng/Ngày/Năm)'] || '',
+          portal_id: getVal(row, 'Tài khoản Portal'),
+          lat: isNaN(latRaw) ? null : latRaw,
+          lng: isNaN(lngRaw) ? null : lngRaw,
+          pic_id: (keyMap.picId ? (row[keyMap.picId]?.toString() || '') : '').trim()
         };
         
         // Use job_code as unique key to prevent doubling
@@ -67,6 +85,13 @@ export const useSync = (user) => {
 
       const transformed = Array.from(dedupMap.values());
       console.log('Final Deduped Count:', transformed.length);
+      console.log('Items with valid coords:', transformed.filter(i => i.lat !== null && i.lng !== null).length);
+      const picSet = [...new Set(transformed.map(i => i.pic))];
+      console.log('Unique PICs:', picSet);
+      const weekSet = [...new Set(transformed.map(i => i.week))];
+      console.log('Unique Weeks:', weekSet);
+      const brandSet = [...new Set(transformed.map(i => i.brand))];
+      console.log('Unique Brands:', brandSet);
 
       const transformedAcceptance = rawAcceptance
         .map(row => ({

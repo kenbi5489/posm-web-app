@@ -12,8 +12,6 @@ import AdminDashboard from './pages/AdminDashboard';
 import { usePWA } from './hooks/usePWA';
 import { masterReset } from './services/db';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''; 
-
 const ProfileField = ({ label, value }) => (
   <div className="relative pl-4 border-l-4 border-primary/20">
     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-0.5">{label}</span>
@@ -151,7 +149,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
             <Route index element={<Dashboard />} />
-            <Route path="map" element={<MapView apiKey={GOOGLE_MAPS_API_KEY} />} />
+            <Route path="map" element={<MapView />} />
             <Route path="list" element={<ListView />} />
             <Route path="detail/:jobCode/:brand" element={<LocationDetail />} />
             <Route path="district" element={<DistrictSummary />} />

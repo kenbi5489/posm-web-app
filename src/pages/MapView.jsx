@@ -1,248 +1,559 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
-import { Loader } from '@googlemaps/js-api-loader';
-import { MarkerClusterer } from '@googlemaps/markerclusterer';
-import { MapPin, Navigation, Info, X, ChevronRight } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMap, ZoomControl } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { X, Navigation, Search as SearchIcon, Filter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 
-const MapView = ({ apiKey = '' }) => {
-  const { user, selectedStaff } = useAuth();
-  const navigate = useNavigate();
-  const mapRef = useRef(null);
-  const inputRef = useRef(null);
-  const [map, setMap] = useState(null);
-  const [items, setItems] = useState([]);
-  const [selectedCluster, setSelectedCluster] = useState(null);
-  const [filter, setFilter] = useState('All');
+// Fix Leaflet's default icon path issues
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
+const removeAccents = (str) => {
+  if (!str) return '';
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+};
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const createClusterCustomIcon = function (cluster) {
+  return L.divIcon({
+    html: `<div style="background-color: #1565C0; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid rgba(255,255,255,0.5); box-shadow: 0 4px 6px rgba(0,0,0,0.3); opacity: 0.9;"><span>${cluster.getChildCount()}</span></div>`,
+    className: 'custom-marker-cluster',
+    iconSize: L.point(40, 40, true),
+  });
+};
+
+const createPointIcon = (count, isDone) => {
+  const color = isDone ? '#2E7D32' : '#F57C00';
+  const size = count > 1 ? 32 : 20;
+  return L.divIcon({
+    html: `<div style="background-color: ${color}; width: ${size}px; height: ${size}px; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+            ${count > 1 ? count : ''}
+          </div>`,
+    className: 'custom-leaflet-marker',
+    iconSize: [size, size],
+    iconAnchor: [size/2, size/2]
+  });
+};
+
+const createSearchIcon = () => {
+  return L.divIcon({
+    html: `<div style="color: #FF0000; font-size: 32px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); transform: translate(-50%, -100%);">📍</div>`,
+    className: 'search-marker',
+    iconSize: [0, 0], // Sized by transform
+  });
+};
+
+// Map controller component to handle camera moves
+const MapController = ({ itemsWithCoords, mapCenter, mapZoom }) => {
+  const map = useMap();
   useEffect(() => {
-    const loadMap = async () => {
-      const activeKey = apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      if (!activeKey) return; // Must have an API key to initialize JS API
-      
-      const loader = new Loader({
-        apiKey: activeKey,
-        version: "weekly",
-      });
-
-      const { Map } = await loader.importLibrary("maps");
-      const { SearchBox } = await loader.importLibrary("places");
-      
-      const newMap = new Map(mapRef.current, {
-        center: { lat: 10.762622, lng: 106.660172 }, // Default to HCM City
-        zoom: 12,
-        mapId: 'POSM_MAP_ID',
-        disableDefaultUI: true,
-        zoomControl: true,
-      });
-
-      setMap(newMap);
-
-      if (inputRef.current) {
-        const searchBox = new SearchBox(inputRef.current);
-        searchBox.addListener("places_changed", () => {
-          const places = searchBox.getPlaces();
-          if (places.length == 0) return;
-          
-          const bounds = new google.maps.LatLngBounds();
-          places.forEach((place) => {
-            if (!place.geometry || !place.geometry.location) return;
-            if (place.geometry.viewport) {
-              bounds.union(place.geometry.viewport);
-            } else {
-              bounds.extend(place.geometry.location);
-            }
-          });
-          newMap.fitBounds(bounds);
-        });
+    if (mapCenter) {
+      map.flyTo([mapCenter.lat, mapCenter.lng], mapZoom || 16, { duration: 1.5 });
+    } else if (itemsWithCoords.length > 0) {
+      const bounds = L.latLngBounds(itemsWithCoords.map(i => [parseFloat(i.lat), parseFloat(i.lng)]));
+      if (bounds.isValid()) {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
       }
-    };
+    }
+  }, [itemsWithCoords, mapCenter, mapZoom, map]);
+  return null;
+};
 
-    loadMap();
-  }, [apiKey]);
+const MapView = () => {
+  const { user, selectedStaff } = useAuth();
+  
+  const [allItems, setAllItems] = useState([]);
+  const [selectedCluster, setSelectedCluster] = useState(null);
+  const [dataVersion, setDataVersion] = useState(0);
 
+  // Filters
+  const [filterWeek, setFilterWeek] = useState('All');
+  const [filterStatus] = useState('Pending'); // Fixed to Pending
+  
+  // Search
+  const [searchInput, setSearchInput] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchMarker, setSearchMarker] = useState(null);
+  const searchTimeoutRef = useRef(null);
+
+  // Geocoding progress
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodedCount, setGeocodedCount] = useState(0);
+
+  // Camera state
+  const [mapCenter, setMapCenter] = useState(null);
+  const [mapZoom, setMapZoom] = useState(null);
+
+  // --- Load All Data From DB ---
   useEffect(() => {
     const loadData = async () => {
       let data = await db.posmData.toArray();
-      const picId = selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null);
-      const staffName = selectedStaff?.ho_ten || (user.role === 'staff' ? user.ho_ten : null);
-      
-      if (picId) {
-        data = data.filter(item => item.pic_id === picId || item.pic === staffName);
-      }
-      
-      if (filter !== 'All') {
-        data = data.filter(item => item.status === (filter === 'Done' ? 'Done' : 'On-going'));
-      }
-      
-      setItems(data);
+      data = data.map(item => ({
+        ...item,
+        week: item.week ? item.week.toString().trim() : '',
+        pic: item.pic ? item.pic.toString().trim() : '',
+        pic_id: item.pic_id ? item.pic_id.toString().trim() : '',
+      }));
+      setAllItems(data);
     };
     loadData();
-  }, [user, filter, selectedStaff]);
+  }, [user, dataVersion]);
 
+  // --- Derive filter options ---
+  const weekOptions = useMemo(() => {
+    return [...new Set(allItems.map(i => (i.week || '').trim()).filter(Boolean))].sort();
+  }, [allItems]);
+
+  // --- Handle default week (Latest) ---
   useEffect(() => {
-    if (!map || items.length === 0) return;
-
-    // Clear existing markers (basic implementation)
-    // In a production app, you'd manage marker instances more carefully
-    
-    const markers = [];
-    const groupedByLocation = {};
-
-    items.forEach(item => {
-      const key = `${item.lat},${item.lng}`;
-      if (!groupedByLocation[key]) {
-        groupedByLocation[key] = [];
+    if (weekOptions.length > 0) {
+      if (filterWeek === 'All' || !filterWeek) {
+        setFilterWeek(weekOptions[weekOptions.length - 1]);
       }
-      groupedByLocation[key].push(item);
-    });
+    }
+  }, [weekOptions, filterWeek]);
 
-    Object.entries(groupedByLocation).forEach(([key, locationItems]) => {
-      const [lat, lng] = key.split(',').map(Number);
-      if (isNaN(lat) || !lat) return;
+  // --- Apply filters ---
+  const filteredItems = useMemo(() => {
+    let data = [...allItems];
 
-      const allDone = locationItems.every(i => i.status === 'Done');
-      const allPending = locationItems.every(i => i.status !== 'Done');
-      
-      const color = allDone ? '#2E7D32' : allPending ? '#E65100' : '#F57C00';
-      
-      const marker = new google.maps.Marker({
-        position: { lat, lng },
-        label: locationItems.length > 1 ? {
-          text: locationItems.length.toString(),
-          color: 'white',
-          fontSize: '12px',
-          fontWeight: 'bold'
-        } : null,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          fillColor: color,
-          fillOpacity: 1,
-          strokeWeight: 2,
-          strokeColor: '#FFFFFF',
-          scale: locationItems.length > 1 ? 15 : 10,
-        }
+    const isStaffRole = user?.role === 'staff';
+    const hasSelectedStaff = !!selectedStaff;
+
+    if (isStaffRole || hasSelectedStaff) {
+      const picId = selectedStaff?.user_id || user?.user_id;
+      const staffName = selectedStaff?.ho_ten || user?.ho_ten;
+
+      data = data.filter(item => {
+        const matchById = picId && item.pic_id && (item.pic_id.toString().trim() === picId.toString().trim());
+        const normalizedItemPic = removeAccents(item.pic);
+        const normalizedStaffName = removeAccents(staffName);
+        const matchByName = staffName && item.pic &&
+          (normalizedItemPic === normalizedStaffName ||
+           normalizedItemPic.includes(normalizedStaffName) ||
+           normalizedStaffName.includes(normalizedItemPic));
+
+        return matchById || matchByName;
       });
-
-      marker.addListener('click', () => {
-        setSelectedCluster(locationItems);
-      });
-
-      markers.push(marker);
-    });
-
-    const clusterer = new MarkerClusterer({ map, markers });
-
-    // Center map on first marker if available
-    if (markers.length > 0) {
-      map.setCenter(markers[0].getPosition());
     }
 
-    return () => {
-      clusterer.clearMarkers();
+    // Force Status: Pending only
+    data = data.filter(item => item.status !== 'Done');
+
+    // Force Week: Selected week only (W+1)
+    if (filterWeek && filterWeek !== 'All') {
+      data = data.filter(item => (item.week || '').trim() === filterWeek.trim());
+    }
+
+    return data;
+  }, [allItems, filterWeek, selectedStaff, user]);
+
+  const isGeocodingBusy = useRef(false);
+
+  // --- Auto-geocode via OSM Nominatim ---
+  useEffect(() => {
+    let isActive = true;
+
+    // missingCoords check
+    const runGeocoding = async () => {
+      if (isGeocodingBusy.current) return;
+      
+      const itemsToMap = filteredItems.filter(item => {
+        const lat = parseFloat(item.lat);
+        const lng = parseFloat(item.lng);
+        return isNaN(lat) || isNaN(lng);
+      });
+
+      if (itemsToMap.length === 0) {
+        setGeocoding(false);
+        return;
+      }
+
+      isGeocodingBusy.current = true;
+      setGeocoding(true);
+      setGeocodedCount(0);
+
+      let batchFound = 0;
+
+      for (let i = 0; i < itemsToMap.length; i++) {
+        if (!isActive) break;
+        const item = itemsToMap[i];
+        
+        const tryGeocode = async (query) => {
+          const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=vn`;
+          const response = await fetch(url, { 
+            headers: { 'Accept-Language': 'vi', 'User-Agent': `POSM-Tracker-PWA-${Math.random().toString(36).substr(2, 5)}` } 
+          });
+          return await response.json();
+        };
+
+        try {
+          const fullAddress = `${item.address || ''}, ${item.ward || ''}, ${item.district || ''}, ${item.city || ''}`.replace(/, ,/gi, ',').replace(/(^,)|(,$)/g, '').trim();
+          const fallbackAddress = `${item.district || ''}, ${item.city || ''}`.trim();
+
+          let results = await tryGeocode(fullAddress);
+          
+          // Fallback if full address fails
+          if ((!results || results.length === 0) && fallbackAddress) {
+            results = await tryGeocode(fallbackAddress);
+          }
+
+          if (results && results.length > 0) {
+            item.lat = results[0].lat;
+            item.lng = results[0].lon; 
+            
+            await db.posmData.put({ ...item });
+            batchFound++;
+            
+            // Update UI every 2 successful finds
+            if (batchFound % 2 === 0) {
+               setDataVersion(v => v + 1);
+            }
+          }
+        } catch (error) {
+          console.error('[Geocoding] API Error:', error);
+          await sleep(2000);
+        }
+
+        if (isActive) setGeocodedCount(i + 1);
+        await sleep(1200); // 1.2s to be safe
+      }
+
+      if (isActive) {
+        setGeocoding(false);
+        isGeocodingBusy.current = false;
+        setDataVersion(v => v + 1); // Final refresh
+      }
     };
-  }, [map, items]);
+
+    const timer = setTimeout(runGeocoding, 1500); // Initial delay to prevent mount race
+    return () => { isActive = false; clearTimeout(timer); };
+  }, [filteredItems.length, filterWeek, selectedStaff]); 
+
+  // Handle Search Input (Switch to Photon API for speed)
+  const handleSearch = (e) => {
+    const q = e.target.value;
+    setSearchInput(q);
+    
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    
+    if (q.trim().length <= 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        // Photon is faster and more lenient for autocomplete
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lang=vi&lat=10.762&lon=106.660`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        const mappedResults = (data.features || []).map(f => ({
+          place_id: f.properties.osm_id || Math.random(),
+          display_name: [
+            f.properties.name,
+            f.properties.street,
+            f.properties.district,
+            f.properties.city,
+            f.properties.country
+          ].filter(Boolean).join(', '),
+          lat: f.geometry.coordinates[1],
+          lon: f.geometry.coordinates[0]
+        }));
+        
+        setSearchResults(mappedResults);
+      } catch (err) {
+        console.error('Search error:', err);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 600);
+  };
+
+  const selectSearchResult = (result) => {
+    setSearchInput(result.display_name);
+    setSearchResults([]);
+    const lat = parseFloat(result.lat);
+    const lon = parseFloat(result.lon);
+    
+    setSearchMarker({ lat, lng: lon });
+    setMapCenter({ lat, lng: lon });
+    setMapZoom(17);
+  };
+
+  // Process data for standard markers
+  const itemsWithCoords = filteredItems.filter(item => {
+    const lat = parseFloat(item.lat);
+    const lng = parseFloat(item.lng);
+    return !isNaN(lat) && !isNaN(lng);
+  });
+
+  const groupedByCoords = itemsWithCoords.reduce((acc, item) => {
+    const lat = parseFloat(item.lat).toFixed(6);
+    const lng = parseFloat(item.lng).toFixed(6);
+    const key = `${lat},${lng}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
 
   return (
-    <div className="relative min-h-[calc(100vh-140px)] w-full bg-slate-100 overflow-hidden flex flex-col">
-      {!(apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY) && (
-        <div className="absolute inset-0 z-20 bg-slate-200 flex flex-col items-center justify-center p-4">
-          <div className="w-full max-w-sm mb-4 bg-yellow-100 text-yellow-800 p-4 rounded-2xl text-center shadow-sm text-xs font-bold ring-1 ring-yellow-400">
-             Tính năng gom cụm Bản đồ nâng cao đang tạm khóa (Chưa cấu hình API Key). <br/> Dưới đây là chế độ xem cơ bản:
+    <div className="relative min-h-[calc(100vh-140px)] w-full bg-slate-100 flex flex-col">
+      {/* Geocoding progress banner */}
+      <AnimatePresence>
+        {geocoding && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-0 left-0 right-0 z-[1000] bg-primary text-white px-5 py-3 flex items-center gap-3 shadow-premium"
+          >
+            <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black">Đang định vị địa chỉ...</p>
+              <p className="text-[10px] text-white/70 font-medium">Đã phân tích {geocodedCount} điểm qua OpenStreetMap (Miễn phí)</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Search + Filter Bar */}
+      <div className="absolute top-4 left-4 right-4 flex flex-col gap-2 z-[5000] pointer-events-none">
+        
+        {/* Search Input */}
+        <div className="w-full pointer-events-auto relative">
+          <div className="shadow-premium rounded-2xl bg-white overflow-hidden flex items-center pr-3 border border-slate-100">
+            <input
+              type="text"
+              value={searchInput}
+              onChange={handleSearch}
+              placeholder="📍 Tìm khu vực, tên phường/đường..."
+              className="flex-1 h-12 px-5 bg-transparent text-slate-700 font-bold border-none focus:outline-none text-sm placeholder:text-slate-400"
+            />
+            {isSearching && (
+              <div className="mr-2">
+                <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+              </div>
+            )}
+            {searchInput && (
+              <button 
+                onClick={() => { setSearchInput(''); setSearchResults([]); setSearchMarker(null); }} 
+                className="p-2 text-slate-400 hover:text-slate-600 active:scale-90 transition-transform"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
-          <div className="w-full h-[60vh] rounded-3xl overflow-hidden shadow-inner border border-slate-300">
-            <iframe
-            title="Google Maps Fallback"
-            width="100%"
-            height="100%"
-            frameBorder="0"
-            style={{ border: 0 }}
-            src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d14896.602758117962!2d105.793437!3d21.007424!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1svi!2sVN!4v1700000000000!5m2!1svi!2sVN"
-            allowFullScreen
-          />
+          
+          {/* Search Results Dropdown */}
+          <AnimatePresence>
+            {searchInput.length > 2 && (searchResults.length > 0 || isSearching) && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-full mt-2 left-0 right-0 bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 max-h-[50vh] overflow-y-auto z-[5001]"
+              >
+                {isSearching && searchResults.length === 0 && (
+                  <div className="px-5 py-4 text-xs font-bold text-slate-400 flex items-center gap-3">
+                    <div className="w-3 h-3 border-2 border-slate-200 border-t-slate-400 rounded-full animate-spin" />
+                    Đang tìm địa điểm...
+                  </div>
+                )}
+                
+                {!isSearching && searchResults.length === 0 && searchInput.length > 2 && (
+                  <div className="px-5 py-4 text-xs font-bold text-slate-400 italic">
+                    Không tìm thấy địa điểm này
+                  </div>
+                )}
+
+                {searchResults.map((result) => (
+                  <button 
+                    key={result.place_id} 
+                    onClick={() => selectSearchResult(result)}
+                    className="w-full text-left px-5 py-4 border-b border-slate-50 last:border-b-0 hover:bg-slate-50 active:bg-slate-100 transition-colors flex items-start gap-3"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <SearchIcon size={14} className="text-slate-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-black text-slate-800 line-clamp-1">{result.display_name.split(',')[0]}</div>
+                      <div className="text-[10px] font-bold text-slate-400 line-clamp-1 mt-0.5">{result.display_name}</div>
+                    </div>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Quick Filters Row */}
+        <div className="flex gap-2 w-full pointer-events-auto">
+          <div className="flex-1 relative shadow-soft rounded-xl bg-white">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <Filter size={14} />
+            </div>
+            <select
+               value={filterWeek}
+               onChange={e => setFilterWeek(e.target.value)}
+               className="w-full h-11 pl-9 pr-8 rounded-xl bg-transparent text-slate-700 text-xs font-black border-2 border-transparent focus:border-primary focus:outline-none appearance-none cursor-pointer"
+            >
+               {weekOptions.length === 0 && <option value="">📅 Đang tải dữ liệu...</option>}
+               {weekOptions.map(w => <option key={w} value={w}>Tuần: {w}</option>)}
+            </select>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]">▼</span>
           </div>
         </div>
-      )}
 
-      <div ref={mapRef} className="h-full w-full" />
 
-      {/* Floating Filter & Search */}
-      <div className="absolute top-4 left-4 right-4 flex flex-col gap-3 z-10 pointer-events-none">
-        <input 
-          ref={inputRef}
-          type="text"
-          placeholder="Tìm địa chỉ (Google Maps)..."
-          className="w-full h-12 px-6 rounded-[1.5rem] bg-white text-slate-800 font-bold shadow-premium border-none focus:ring-2 focus:ring-primary pointer-events-auto"
-        />
-        <div className="flex gap-2 overflow-x-auto pb-2 pointer-events-auto scrollbar-hide">
-          <MapFilterTab active={filter === 'All'} label="Tất cả" onClick={() => setFilter('All')} />
-          <MapFilterTab active={filter === 'Pending'} label="Chưa xong" onClick={() => setFilter('Pending')} />
-          <MapFilterTab active={filter === 'Done'} label="Đã xong" onClick={() => setFilter('Done')} />
+
+        {/* Summary badge */}
+        <div className="pointer-events-auto mt-1 flex items-center gap-2">
+          <div className="bg-white/95 backdrop-blur-md rounded-2xl px-4 py-2.5 shadow-premium text-[11px] font-black text-slate-700 border border-slate-100 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+            <span>
+              {geocoding ? (
+                <span className="text-amber-600 animate-pulse">🛠 Đang định vị: {geocodedCount}/{filteredItems.length} địa chỉ...</span>
+              ) : itemsWithCoords.length > 0 ? (
+                <>📍 <span className="text-primary">{itemsWithCoords.length}</span> cửa hàng trong {filterWeek}</>
+              ) : filteredItems.length > 0 ? (
+                <span className="text-amber-600">⚠️ {filteredItems.length} việc chưa có tọa độ</span>
+              ) : (
+                <span className="text-slate-400 italic">Không có công việc tồn đọng</span>
+              )}
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* Bottom Sheet */}
+      {/* Leaflet Map */}
+      <div className="flex-1 w-full relative bg-[#E5E3DF] z-0 min-h-[500px]">
+        <MapContainer 
+          center={[10.762622, 106.660172]} 
+          zoom={12} 
+          className="absolute inset-0 w-full h-full"
+          zoomControl={false}
+          attributionControl={false}
+        >
+          <MapController itemsWithCoords={itemsWithCoords} mapCenter={mapCenter} mapZoom={mapZoom} />
+          
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <ZoomControl position="bottomright" />
+
+          {/* Search marker */}
+          {searchMarker && (
+            <Marker position={[searchMarker.lat, searchMarker.lng]} icon={createSearchIcon()} />
+          )}
+
+          {/* Cluster the coordinates */}
+          <MarkerClusterGroup 
+            chunkedLoading 
+            iconCreateFunction={createClusterCustomIcon}
+            maxClusterRadius={40}
+            showCoverageOnHover={false}
+          >
+            {Object.values(groupedByCoords).map((locationItems, idx) => {
+              const lat = parseFloat(locationItems[0].lat);
+              const lng = parseFloat(locationItems[0].lng);
+              const isAllDone = locationItems.every(i => i.status === 'Done');
+              
+              return (
+                <Marker 
+                  key={`marker-${lat}-${lng}-${idx}`}
+                  position={[lat, lng]} 
+                  icon={createPointIcon(locationItems.length, isAllDone)}
+                  eventHandlers={{ click: () => setSelectedCluster(locationItems) }}
+                />
+              );
+            })}
+          </MarkerClusterGroup>
+
+        </MapContainer>
+      </div>
+
+      {/* Bottom Sheet for selected marker */}
       <AnimatePresence>
         {selectedCluster && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setSelectedCluster(null)}
               className="absolute inset-0 bg-black/20 backdrop-blur-[2px] z-30"
             />
             <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] shadow-premium z-40 max-h-[70vh] flex flex-col"
             >
-              <div className="p-6 flex justify-between items-center border-b border-slate-50">
-                <div>
-                   <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                     {selectedCluster.length} địa điểm
-                   </h3>
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedCluster[0].address}</p>
+              <div className="p-5 flex justify-between items-center border-b border-slate-50 gap-4">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">{selectedCluster.length} địa điểm</h3>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                    {selectedCluster[0].week && <span className="text-primary">[{selectedCluster[0].week}] </span>}
+                    {selectedCluster[0].address}
+                  </p>
                 </div>
-                <button onClick={() => setSelectedCluster(null)} className="p-2 bg-slate-50 rounded-full text-slate-400">
-                  <X size={20} />
-                </button>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                        const destination = `${selectedCluster[0].lat},${selectedCluster[0].lng}`;
+                        window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}`, '_blank');
+                    }}
+                    className="h-10 px-4 rounded-xl bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest flex items-center shadow-soft active:scale-95 transition-transform"
+                  >
+                    Chỉ đường
+                  </button>
+                  <button onClick={() => setSelectedCluster(null)} className="h-10 w-10 flex items-center justify-center bg-slate-50 rounded-xl text-slate-400 active:bg-slate-100 transition-colors">
+                    <X size={20} />
+                  </button>
+                </div>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-safe">
                 {selectedCluster.map((item, idx) => (
-                  <div 
+                  <div
                     key={`${item.job_code}-${idx}`}
-                    onClick={() => navigate(`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`)}
-                    className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl active:bg-slate-100 transition-colors"
+                    className="bg-slate-50 rounded-3xl p-4 border border-slate-100 shadow-soft"
                   >
-                    <div className="min-w-0">
-                      <h4 className="font-bold text-slate-800 truncate">{item.brand}</h4>
-                      <p className="text-[10px] font-black text-primary uppercase tracking-tighter">{item.job_code}</p>
+                    <div className="flex justify-between items-start mb-1">
+                      <div>
+                        {item.brand && <p className="text-xs font-black text-slate-400 mb-1">{item.brand}</p>}
+                        <h4 className="text-sm font-black text-slate-800">{item.address}</h4>
+                      </div>
+                      <span className={`px-2 py-1 rounded-sm text-[10px] font-black uppercase tracking-widest ${
+                        item.status === 'Done' ? 'bg-done/10 text-done' : 'bg-accent/10 text-accent'
+                      }`}>
+                        {item.status === 'Done' ? 'Đã xong' : 'Đang làm'}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <div className={`w-2 h-2 rounded-full ${item.status === 'Done' ? 'bg-done' : 'bg-accent'}`} />
-                      <ChevronRight size={16} className="text-slate-300" />
+
+                    <div className="grid grid-cols-2 gap-2 mt-4">
+                      <div className="bg-white rounded-2xl p-3 border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Mã NV</p>
+                        <p className="text-xs font-black text-slate-700">{item.pic_id}</p>
+                      </div>
+                      <div className="bg-white rounded-2xl p-3 border border-slate-100">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Họ Tên</p>
+                        <p className="text-xs font-black text-slate-700 truncate">{item.pic}</p>
+                      </div>
                     </div>
                   </div>
                 ))}
-              </div>
-              
-              <div className="p-4 pt-0">
-                 <button 
-                  onClick={() => {
-                    const dest = `${selectedCluster[0].address}, ${selectedCluster[0].district}, ${selectedCluster[0].city}`;
-                    window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}`, '_blank');
-                  }}
-                  className="w-full bg-primary text-white font-black py-4 rounded-2xl flex items-center justify-center gap-2 shadow-premium"
-                 >
-                   <Navigation size={20} />
-                   <span>DẪN ĐƯỜNG</span>
-                 </button>
               </div>
             </motion.div>
           </>
@@ -251,18 +562,5 @@ const MapView = ({ apiKey = '' }) => {
     </div>
   );
 };
-
-const MapFilterTab = ({ active, label, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`whitespace-nowrap h-10 px-6 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-200 border-2 ${
-      active 
-        ? 'bg-primary text-white border-primary shadow-premium' 
-        : 'bg-white text-slate-600 border-white shadow-soft'
-    }`}
-  >
-    {label}
-  </button>
-);
 
 export default MapView;

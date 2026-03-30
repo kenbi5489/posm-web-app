@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { Search, Filter, ChevronRight, CheckCircle2, Clock, MapPin } from 'lucide-react';
@@ -8,14 +8,24 @@ import { Link } from 'react-router-dom';
 const ListView = () => {
   const { user, selectedStaff } = useAuth();
   const [items, setItems] = useState([]);
-  const [filter, setFilter] = useState('All'); // All, Pending, Done
-  const [search, setSearch] = useState('');
-  const [district, setDistrict] = useState('All');
+  const [filter, setFilter] = useState(() => sessionStorage.getItem('lv_filter') || 'All');
+  const [search, setSearch] = useState(() => sessionStorage.getItem('lv_search') || '');
+  const [district, setDistrict] = useState(() => sessionStorage.getItem('lv_district') || 'All');
   const [districts, setDistricts] = useState([]);
-  const [week, setWeek] = useState('All');
+  const [week, setWeek] = useState(() => sessionStorage.getItem('lv_week') || 'All');
   const [weeks, setWeeks] = useState([]);
+  const [displayCount, setDisplayCount] = useState(() => parseInt(sessionStorage.getItem('lv_count')) || 20);
+  
+  const isFirstRender = useRef(true);
 
-  const [displayCount, setDisplayCount] = useState(20);
+  // Save state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('lv_filter', filter);
+    sessionStorage.setItem('lv_search', search);
+    sessionStorage.setItem('lv_district', district);
+    sessionStorage.setItem('lv_week', week);
+    sessionStorage.setItem('lv_count', displayCount.toString());
+  }, [filter, search, district, week, displayCount]);
 
   useEffect(() => {
     const loadItems = async () => {
@@ -52,12 +62,14 @@ const ListView = () => {
       }
 
       setItems(data);
-      setDisplayCount(20); // Reset count when filters change
+      if (!isFirstRender.current) {
+        setDisplayCount(20); // Reset count when filters change (but not on initial load)
+      }
+      isFirstRender.current = false;
     };
 
     loadItems();
   }, [user, filter, search, district, week, selectedStaff]);
-
   const loadMore = () => setDisplayCount(prev => prev + 20);
 
   return (
