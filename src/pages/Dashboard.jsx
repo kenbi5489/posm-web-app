@@ -48,7 +48,7 @@ const Dashboard = () => {
         total,
         done,
         pending: total - done,
-        percent: total > 0 ? Math.round((done / total) * 100) : 0
+        percent: Math.min(100, Math.round((done / 75) * 100))
       }
     };
   }, [data, user, selectedStaff, week, brand]);

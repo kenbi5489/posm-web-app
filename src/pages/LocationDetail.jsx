@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import ReportModal from '../components/ReportModal';
 
 const LocationDetail = () => {
   const { jobCode, brand } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [item, setItem] = useState(null);
   const [acceptance, setAcceptance] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [confirming, setConfirming] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [reverting, setReverting] = useState(false);
 
   useEffect(() => {
@@ -27,22 +30,19 @@ const LocationDetail = () => {
     loadItem();
   }, [jobCode, brand]);
 
-  const handleComplete = async () => {
-    // Optimistic UI update
-    const updated = { ...item, status: 'Done', completion_date: new Date().toLocaleDateString('vi-VN') };
-    await db.posmData.put(updated);
+  const handleReportSuccess = async (updatedItem) => {
+    // This is called when the Modal successfully submits to GAS
+    // We update the local Dexie DB to reflect completion
+    await db.posmData.put(updatedItem);
     
-    // Add to sync queue
-    await db.syncQueue.add({
-      type: 'COMPLETE_POSM',
-      payload: { jobCode: item.job_code, brand: item.brand, status: 'Done' },
+    // Also save a local record of acceptance for offline viewing
+    await db.acceptanceData.put({
+      job_code: updatedItem.job_code,
+      posm_status: updatedItem.posm_status,
       timestamp: Date.now()
     });
 
-    setItem(updated);
-    setConfirming(false);
-    
-    // In a real app, you'd trigger the background sync here if online
+    setItem(updatedItem);
   };
 
   const handleIncomplete = async () => {
@@ -170,10 +170,10 @@ const LocationDetail = () => {
 
         {!isDone ? (
           <button 
-            onClick={() => setConfirming(true)}
+            onClick={() => setIsReportModalOpen(true)}
             className="w-full bg-done text-white font-black py-6 rounded-[2rem] shadow-premium text-xl uppercase tracking-widest active:scale-98 transition-all"
           >
-            Xác nhận hoàn thành
+            Nghiệm thu / Báo cáo
           </button>
         ) : (
           <button 
@@ -185,39 +185,18 @@ const LocationDetail = () => {
         )}
       </div>
 
-      {/* Confirmation Modal */}
-      {confirming && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm p-4">
-          <motion.div 
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-premium"
-          >
-            <div className="text-center space-y-2">
-              <div className="w-20 h-20 bg-green-50 rounded-full mx-auto flex items-center justify-center text-done mb-4">
-                <CheckCircle size={40} />
-              </div>
-              <h3 className="text-2xl font-black text-slate-800 leading-tight">Hoàn thành công việc?</h3>
-              <p className="text-slate-500 font-medium">Bạn xác nhận đã kiểm tra điểm POSM tại <span className="text-slate-900 font-bold">{item.brand}</span>?</p>
-            </div>
-
-            <div className="space-y-3">
-              <button 
-                onClick={handleComplete}
-                className="w-full bg-done text-white font-black py-5 rounded-2xl shadow-premium uppercase tracking-widest"
-              >
-                Đúng, đã hoàn thành
-              </button>
-              <button 
-                onClick={() => setConfirming(false)}
-                className="w-full bg-slate-50 text-slate-400 font-bold py-5 rounded-2xl border border-slate-100 uppercase tracking-widest"
-              >
-                Hủy bỏ
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+      {/* Production Report Modal */}
+      <AnimatePresence>
+        {isReportModalOpen && (
+          <ReportModal 
+            isOpen={isReportModalOpen}
+            onClose={() => setIsReportModalOpen(false)}
+            item={item}
+            user={user}
+            onSuccess={handleReportSuccess}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Revert Confirmation Modal */}
       {reverting && (

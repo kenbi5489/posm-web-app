@@ -19,104 +19,110 @@ export const useSync = (user) => {
         fetchAcceptanceData()
       ]);
       
-      console.log('Raw Data fetched:', data.length);
-      console.log('Sample Row keys:', data.length > 0 ? Object.keys(data[0]) : 'None');
-      
-      // Helper to find column keys case-insensitively or with partial match
-      // Returns the actual key name from the row, or null if not found
       const findKey = (row, pattern) => {
         const keys = Object.keys(row);
         const lower = pattern.toLowerCase();
-        // Try exact match first (case-insensitive)
         const exact = keys.find(k => k.toLowerCase() === lower);
         if (exact) return exact;
-        // Then try partial match
         return keys.find(k => k.toLowerCase().includes(lower)) || null;
       };
       
       const getVal = (row, pattern, fallback = '') => {
         const key = findKey(row, pattern);
+        if (!key && pattern.toLowerCase() === 'week') {
+           const weekNumKey = Object.keys(row).find(k => k.toLowerCase() === 'weeknum');
+           if (weekNumKey) return (row[weekNumKey] ?? fallback);
+        }
         return key ? (row[key] ?? fallback) : fallback;
       };
 
-      // Transform and Manual Deduplication
-      const dedupMap = new Map();
+      const assignmentsMap = new Map();
       
+      // Step 1: Initialize all assignments from "Data chia hàng tuần" as On-going
       data.forEach(row => {
         const jobCodeKey = findKey(row, 'Mã cv');
-        const keyMap = {
-          jobCode: jobCodeKey,
-          brand: findKey(row, 'Brand'),
-          pic: findKey(row, 'PIC'),
-          status: findKey(row, 'Status'),
-          picId: findKey(row, 'pic_id')
-        };
-        
-        const jobCode = keyMap.jobCode ? row[keyMap.jobCode]?.toString().trim() : null;
-        if (!jobCode || jobCode === "" || jobCode.length < 2) return; // Skip invalid codes
-        
+        const jobCode = jobCodeKey ? row[jobCodeKey]?.toString().trim() : null;
+        if (!jobCode || jobCode === "" || jobCode.length < 2) return;
+
         const latStr = getVal(row, 'latitude') || getVal(row, 'lat') || getVal(row, 'vĩ độ') || getVal(row, 'vi do') || '';
         const lngStr = getVal(row, 'longitude') || getVal(row, 'lng') || getVal(row, 'kinh độ') || getVal(row, 'kinh do') || '';
-        
         const latRaw = parseFloat(latStr.toString().replace(',', '.'));
         const lngRaw = parseFloat(lngStr.toString().replace(',', '.'));
         
-        const item = {
-          week: (getVal(row, 'Week triển khai') || getVal(row, 'Week') || getVal(row, 'Tuần') || '').trim(),
+        assignmentsMap.set(jobCode, {
+          week: (getVal(row, 'Week triển khai') || getVal(row, 'Week') || getVal(row, 'Tuần') || getVal(row, 'WEEKnum') || '').trim(),
           date_assigned: getVal(row, 'Ngày chia'),
-          brand: (keyMap.brand ? (row[keyMap.brand] || '') : '').trim(),
+          brand: getVal(row, 'Brand'),
           job_code: jobCode,
           address: getVal(row, 'Địa chỉ') || getVal(row, 'Dia chi'),
           ward: getVal(row, 'Phường') || getVal(row, 'Phuong'),
-          district: getVal(row, 'Quận') || getVal(row, 'Quan'),
+          district: getVal(row, 'Quận') || getVal(row, 'Quan') || getVal(row, 'District'),
           city: getVal(row, 'Thành Phố') || getVal(row, 'Thanh Pho') || getVal(row, 'City'),
-          pic: (keyMap.pic ? (row[keyMap.pic] || '') : '').trim(),
-          status: (keyMap.status ? (row[keyMap.status] || 'On-going') : 'On-going').trim(),
-          completion_date: getVal(row, 'Ngày hoàn thành') || row['Ngày hoàn thành (Typing theo thứ tự: Tháng/Ngày/Năm)'] || '',
+          pic: getVal(row, 'PIC'),
+          status: 'On-going', // DEFAULT
+          completion_date: '',
           portal_id: getVal(row, 'Tài khoản Portal'),
           lat: isNaN(latRaw) ? null : latRaw,
           lng: isNaN(lngRaw) ? null : lngRaw,
-          pic_id: (keyMap.picId ? (row[keyMap.picId]?.toString() || '') : '').trim()
-        };
-        
-        // Use job_code as unique key to prevent doubling
-        dedupMap.set(jobCode, item);
+          pic_id: (getVal(row, 'pic_id') || '').toString().trim(),
+          mall_name: getVal(row, 'Mall_Name') || getVal(row, 'Mall') || 'N/A',
+          location_type: getVal(row, 'Location_Type') || getVal(row, 'Type') || 'N/A',
+          frame: getVal(row, 'Frame') || 'N/A'
+        });
       });
 
-      const transformed = Array.from(dedupMap.values());
-      console.log('Final Deduped Count:', transformed.length);
-      console.log('Items with valid coords:', transformed.filter(i => i.lat !== null && i.lng !== null).length);
-      const picSet = [...new Set(transformed.map(i => i.pic))];
-      console.log('Unique PICs:', picSet);
-      const weekSet = [...new Set(transformed.map(i => i.week))];
-      console.log('Unique Weeks:', weekSet);
-      const brandSet = [...new Set(transformed.map(i => i.brand))];
-      console.log('Unique Brands:', brandSet);
+      // Step 2: Overlay "Data nghiệm thu" to mark items as Done and update their week
+      rawAcceptance.forEach(row => {
+        const jobCode = (row['Mã cv (theo mã trong file chia. VD: QC1)'] || row['Mã cv'] || row['jobCode'] || row['Mã CV'] || row['mã cv'])?.toString().trim();
+        if (!jobCode) return;
 
+        // User specifically asked to check week from AJ (WEEKnum) in this sheet
+        const weekRaw = (row['WEEKnum'] || row['Week'] || row['Tuần'] || '').trim();
+        
+        const existing = assignmentsMap.get(jobCode);
+        if (existing) {
+          assignmentsMap.set(jobCode, {
+            ...existing,
+            status: 'Done',
+            week: weekRaw || existing.week, // Use WEEKnum if available
+            completion_date: row['Timestamp'] || ''
+          });
+        } else {
+          // If a report exists for a shop not in the assignment list, we still show it in "Done"
+          assignmentsMap.set(jobCode, {
+            job_code: jobCode,
+            brand: row['Brand'] || 'Unknown',
+            address: row['Địa chỉ'] || row['Dia chi'] || 'N/A',
+            pic: row['Tên nhân viên'] || row['Nhân viên'] || '',
+            status: 'Done',
+            week: weekRaw || 'Unknown',
+            district: row['District'] || row['Quận'] || 'N/A',
+            city: row['City'] || row['Thành Phố'] || 'N/A',
+            completion_date: row['Timestamp'] || ''
+          });
+        }
+      });
+
+      const transformed = Array.from(assignmentsMap.values());
       const transformedAcceptance = rawAcceptance
         .map(row => ({
-          job_code: row['Mã cv (theo mã trong file chia. VD: QC1)']?.toString().trim(),
-          image1: row['Link 1'],
-          image2: row['Link 2'],
-          posm_status: row['POSM_Status'] || row['Có POSM không? Nhân viên thanh toán được không? '] || row['Tình trạng POSM'] || '',
+          job_code: (row['Mã cv (theo mã trong file chia. VD: QC1)'] || row['Mã cv'] || row['jobCode'] || row['Mã CV'])?.toString().trim(),
+          image1: row['Link 1'] || row['Ảnh 1'] || '',
+          image2: row['Link 2'] || row['Ảnh 2'] || '',
+          posm_status: row['POSM_Status'] || row['Tình trạng POSM'] || '',
           note: row['Ghi chú'] || ''
         }))
         .filter(item => item.job_code && item.job_code.length > 0);
 
-      // Use bulkAdd after clear for stability
       try {
         await db.posmData.clear();
         await db.acceptanceData.clear();
-        
         await db.transaction('rw', [db.posmData, db.acceptanceData], async () => {
           await db.posmData.bulkAdd(transformed);
           await db.acceptanceData.bulkAdd(transformedAcceptance);
         });
       } catch (dbErr) {
-        console.warn("Bulk add failed, attempting put individually:", dbErr);
-        for (const item of transformed) {
-          try { await db.posmData.put(item); } catch(e) {}
-        }
+        console.warn("DB Update failed, pulling manually:", dbErr);
       }
 
       setLastSync(new Date());

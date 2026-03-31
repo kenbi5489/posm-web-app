@@ -18,7 +18,7 @@ const AdminDashboard = () => {
         const staffData = allData.filter(d => d.pic_id === staff.user_id || d.pic === staff.ho_ten);
         const total = staffData.length;
         const done = staffData.filter(d => d.status === 'Done').length;
-        const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+        const percent = Math.min(100, Math.round((done / 75) * 100));
         
         return {
           ...staff,
