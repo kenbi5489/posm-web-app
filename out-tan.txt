@@ -1,0 +1,8 @@
+Querying: Phường 11 Quận 8 Hồ Chí Minh
+  => lat 10.7412212 lon 106.6664075 Viện Kiểm sát Nhân dân quận 8, 11, Dương Quang Đông, Khu phố 85, Phường Chánh Hưng, Thành phố Hồ Chí Minh, 72400, Việt Nam
+Querying: Phường 4 Quận 8 Thành phố Hồ Chí Minh
+  => lat 10.7183710 lon 106.6247644 Trường Tiểu học Nguyễn Công Trứ, 4, Đường Trương Đình Hội, Khu phố 86, Phường Phú Định, Thành phố Hồ Chí Minh, 71959, Việt Nam
+Querying: Phường 4 Quận 8 Thành phố Hồ Chí Minh
+  => lat 10.7183710 lon 106.6247644 Trường Tiểu học Nguyễn Công Trứ, 4, Đường Trương Đình Hội, Khu phố 86, Phường Phú Định, Thành phố Hồ Chí Minh, 71959, Việt Nam
+Querying: Phường 16 Quận 8 Thành phố Hồ Chí Minh
+  => lat 10.7106025 lon 106.6280142 Trường Tiểu học Nguyễn Trung Ngạn, 16, Đường Lê Bôi, Phường Bình Đông, Thành phố Hồ Chí Minh, 71959, Việt Nam

@@ -1,0 +1,8 @@
+Fetching Nominatim: https://nominatim.openstreetmap.org/search?q=P.11%20Q.8%20TP.HCM&format=json&limit=1&countrycodes=vn
+ Nominatim Result for P.11 Q.8 TP.HCM : lat 12.6945865 lon 108.0187052 name Đường 10 Tháng 3, Tổ dân phố 3, Thôn 3, Phường Buôn Ma Thuột, Tỉnh Đắk Lắk, 63119, Việt Nam
+Fetching Nominatim: https://nominatim.openstreetmap.org/search?q=Ph%C6%B0%E1%BB%9Dng%2011%20Qu%E1%BA%ADn%208%20H%E1%BB%93%20Ch%C3%AD%20Minh&format=json&limit=1&countrycodes=vn
+ Nominatim Result for Phường 11 Quận 8 Hồ Chí Minh : lat 10.7412212 lon 106.6664075 name Viện Kiểm sát Nhân dân quận 8, 11, Dương Quang Đông, Khu phố 85, Phường Chánh Hưng, Thành phố Hồ Chí Minh, 72400, Việt Nam
+Fetching Nominatim: https://nominatim.openstreetmap.org/search?q=Qu%E1%BA%ADn%208%20H%E1%BB%93%20Ch%C3%AD%20Minh&format=json&limit=1&countrycodes=vn
+ Nominatim Result for Quận 8 Hồ Chí Minh : lat 10.7211158 lon 106.6292079 name Quận 8, Thành phố Hồ Chí Minh, Việt Nam
+Fetching Nominatim: https://nominatim.openstreetmap.org/search?q=TP.H%E1%BB%93%20Ch%C3%AD%20Minh&format=json&limit=1&countrycodes=vn
+ Nominatim Result for TP.Hồ Chí Minh : lat 10.7755254 lon 106.7021047 name Thành phố Hồ Chí Minh, Việt Nam

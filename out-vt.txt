@@ -1,0 +1,3 @@
+Nominatim Result for Việt Nam : lat 15.9266657 lon 107.9650855
+Nominatim Result for Bà Rịa - Vũng Tàu : lat 10.3471705 lon 107.0763626
+Nominatim Result for Đông Nam Bộ : lat 10.3197230 lon 107.3119589

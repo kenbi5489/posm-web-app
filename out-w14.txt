@@ -1,0 +1,10 @@
+Headers: Week triển khai | Ngày chia | Brand | Mã cv | Địa chỉ | Phường | Quận | Thành Phố | Project | Task | Ưu tiên | PIC | Status | Ngày hoàn thành (Typing theo thứ tự: Tháng/Ngày/Năm) | Tài khoản Portal | Yêu cầu | Note | File nghiệm thu | Type | W hoàn thành
+All weeks in data: [
+  'W1',  'W10', 'W11',
+  'W12', 'W13', 'W14',
+  'W2',  'W3',  'W4',
+  'W5',  'W6',  'W7',
+  'W8',  'W9'
+]
+W14 count: 375
+Sample W14 row address: 324 Hồ Tùng Mậu, P.Phú Diễn, Q.Bắc Từ Liêm, TP.Hà Nội

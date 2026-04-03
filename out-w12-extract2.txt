@@ -1,0 +1,18 @@
+Address: 58C1 Cao Thắng, Phường 5, Quận 3, Hồ Chí Minh
+Ward=[Phường 5] District=[Quận 3]
+---
+Address: 161 Khánh Hội, P.3, Q.4, TP.Hồ Chí Minh
+Ward=[Phường 3] District=[Quận 4]
+---
+Address: 126 Hồng Bàng, , 12, Quận 5, Hồ Chí Minh
+Ward=[] District=[Quận 5]
+---
+Address: 1058 Đại Lộ Nguyễn Văn Linh, Tân Phong, Quận 7, Hồ Chí Minh
+Ward=[] District=[Quận 7]
+---
+Address: 200A Lý Tự Trọng, Phường Bến Thành, Quận 1, TP.HCM
+Ward=[Phường Bến Thành] District=[Quận 1]
+---
+Address: Tầng 4 Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Phú, Quận 7, Thành phố Hồ Chí Minh
+Ward=[Phường Tân Phú] District=[Quận 7]
+---

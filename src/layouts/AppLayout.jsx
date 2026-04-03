@@ -6,6 +6,7 @@ import { useSync } from '../hooks/useSync';
 import { fetchUsers } from '../services/api';
 import { addWatermark } from '../services/WatermarkService';
 import { motion, AnimatePresence } from 'framer-motion';
+import OnboardingTour from '../components/OnboardingTour';
 
 const AppLayout = () => {
   const { user, selectedStaff, selectStaff } = useAuth();
@@ -130,11 +131,11 @@ const AppLayout = () => {
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-6 py-2 flex justify-between items-center shadow-[0_-4px_12px_rgba(0,0,0,0.03)] pb-safe z-40">
-        <NavItem to="/" icon={<Home size={22} />} label="Trang chủ" />
-        <NavItem to="/map" icon={<MapIcon size={22} />} label="Bản đồ" />
+        <NavItem id="tour-nav-home" to="/" icon={<Home size={22} />} label="Trang chủ" />
+        <NavItem id="tour-nav-route" to="/map" icon={<MapIcon size={22} />} label="Tuyến đường" />
         
         {/* CENTER CAMERA BUTTON */}
-        <div className="relative -mt-10 flex flex-col items-center gap-1 group">
+        <div id="tour-nav-camera" className="relative -mt-10 flex flex-col items-center gap-1 group">
           <input 
             type="file" 
             ref={cameraInputRef} 
@@ -153,8 +154,8 @@ const AppLayout = () => {
           <span className="text-[10px] font-bold text-primary uppercase tracking-tighter mt-1">Chụp nhanh</span>
         </div>
 
-        <NavItem to="/list" icon={<List size={22} />} label="Danh sách" />
-        <NavItem to="/profile" icon={<User size={22} />} label="Cá nhân" />
+        <NavItem id="tour-nav-list" to="/list" icon={<List size={22} />} label="Danh sách" />
+        <NavItem id="tour-nav-profile" to="/profile" icon={<User size={22} />} label="Cá nhân" />
       </nav>
 
       {/* PREVIEW MODAL */}
@@ -194,13 +195,17 @@ const AppLayout = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Onboarding Tour */}
+      <OnboardingTour />
     </div>
   );
 };
 
-const NavItem = ({ to, icon, label }) => (
+const NavItem = ({ to, icon, label, id }) => (
   <NavLink
     to={to}
+    id={id}
     className={({ isActive }) =>
       `flex flex-col items-center gap-1 transition-all duration-200 ${
         isActive ? 'text-primary scale-105' : 'text-slate-400'

@@ -1,0 +1,76 @@
+Found 75 rows in W12 for Tan
+[0] 5F-53 Tầng 5, Crescent Mall, Số 101 Tôn Dật Tiên, Phường Tân Phú, Quận 7, TPHCM
+[1] Khuôn viên Vietopia, Số 2 – 4, Đường số 9, P.Tân Hưng, Q.7, TP.Hồ Chí Minh
+[2] 352 Lê Văn Lương, P.Tân Hưng, Q.7, TP.Hồ Chí Minh
+[3] 508 Nguyễn Thị Thập, Phường Tân Quy, Quận 7
+[4] 35 Tân Mỹ, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[5] 244 Khánh Hội, P.6, Q.4, TP.Hồ Chí Minh
+[6] 39 Nguyễn Cư Trinh, P.Nguyễn Cư Trinh, Q.1, TP.Hồ Chí Minh
+[7] 2C Vĩnh Hội, P.3, Q.4, TP.Hồ Chí Minh
+[8] 489 Nguyễn Thị Thập, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+[9] 211-213 Võ Văn Tần, P.5, Q.3, TP.Hồ Chí Minh
+[10] 152 Nguyễn Khoái, phường 2, Quận 4 và 326 Bến Vân Đồn, phường 2, Quận 4, TP.HCM (2 mặt tiền)
+[11] 200A Lý Tự Trọng, Phường Bến Thành, Quận 1, TP.HCM
+[12] 34 Lê Duẩn, Bến Nghé, Quận 1, Hồ Chí Minh
+[13] 410 - 414 Nguyễn Đình Chiểu, Phường Bàn Cờ, TP.HCM
+[14] 744 Trần Hưng Đạo, Phường Chợ Quán, TP.HCM
+[15] 615A Trần Hưng Đạo, Phường Chợ Quán, TP.HCM
+[16] Số 99 Nguyễn Văn Cừ, Phường Chợ Quán, TP.HCM
+[17] 5 Lý Tự Trọng, Phường Bến Nghé, Quận 1, TP.HCM
+[18] 444 Trần Hưng Đạo, Phường Chợ Quán, TP.HCM
+[19] 65 Lê Lợi, Bến Nghé, Quận 1, Hồ Chí Minh
+[20] 749 Trần Hưng Đạo, phường Chợ Quán, TP.HCM
+[21] 136 Hai Bà Trưng, phường Sài Gòn, TP.HCM
+[22] 372 Lê Văn Sỹ, Phường Nhiêu Lộc, TP.HCM
+[23] 241Bis Hai Bà Trưng, P.6, Q.3, TP.Hồ Chí Minh
+[24] 108 Pasteur, P. Sài Gòn, TP. HCM
+[25] 104 Hồ Tùng Mậu, Phường Sài Gòn, TP.HCM
+[26] 82 Hồ Tùng Mậu, P.Bến Nghé, Q.1, TP.Hồ Chí Minh
+[27] 107 nguyễn trãi, P.2, Q. 5, TP.Hồ Chí Minh
+[28] Saigon Centre
+[29] Saigon Centre
+[30] Saigon Centre
+[31] Saigon Centre
+[32] Saigon Centre
+[33] Saigon Centre
+[34] Saigon Centre
+[35] Saigon Centre
+[36] Số 342-344 đường Hai Bà Trưng, P.Tân Định, Q.1, TP.Hồ Chí Minh
+[37] 168 NGUYỄN ĐÌNH CHIỂU , P.6, Q.3, TP.HỒ CHÍ MINH
+[38] 276 Lê Văn Sỹ, P.14, Q.3, TP.Hồ Chí Minh
+[39] 401 Hai Bà Trưng, P.8, Q.3, TP.Hồ Chí Minh
+[40] 442, Cách Mạng Tháng 8, P.11, Q.3, TP.Hồ Chí Minh
+[41] 95 Cao Thắng, P.3, Q.3, TP.Hồ Chí Minh
+[42] CAO ỐC SCREC, ĐƯỜNG TRƯỜNG SA, P.12, Q.3, TP.HỒ CHÍ MINH
+[43] 208 Nam Kỳ Khởi Nghĩa, Phường 6, Quận 3, Hồ Chí Minh
+[44] 230B Võ Thị Sáu, P.7, Q.3, TP.Hồ Chí Minh
+[45] 26 Cao Thắng, Phường 5, Quận 3, TP.HCM
+[46] 409a Đ. Lê Văn Sỹ, P.13, Q.3, TP.Hồ Chí Minh
+[47] 409A Lê Văn Sỹ, Phường 12, Quận 3, Hồ Chí Minh
+[48] 58C Đ. Cao Thắng, P.5, Q.3, TP.Hồ Chí Minh
+[49] 58C1 Cao Thắng, Phường 5, Quận 3, Hồ Chí Minh
+[50] 161 Khánh Hội, P.3, Q.4, TP.Hồ Chí Minh
+[51] 2 đường số 41, P.6, Q.4. TP. Hồ Chí Minh
+[52] 25 Tôn Đản, Phường 13, Quận 4, TP Hồ Chí Minh
+[53] 46-48 Đường số 41, P.6, Q.4, TP.Hồ Chí Minh
+[54] 48–50 Lê Văn Linh, P.12, Q.4, TP.Hồ Chí Minh
+[55] 126 Hồng Bàng, , 12, Quận 5, Hồ Chí Minh
+[56] 169 Nguyễn Văn Cừ, P.2, Q.5, TP.Hồ Chí Minh
+[57] 96 HÙNG VƯƠNG, P.9, Q.5, TP.HỒ CHÍ MINH
+[58] 190 Hồng Bàng, Phường 12, Quận 5, Hồ Chí Minh
+[59] 10-10A Nguyễn Thị Thập, Phường Bình Thuận, Quận 7, Thành phố Hồ Chí Minh
+[60] 101 Đ. Tôn Dật Tiên, , Tân Phú, Quận 7, Hồ Chí Minh
+[61] 101 Đ. Tôn Dật Tiên, , Tân Phú, Quận 7, Hồ Chí Minh
+[62] 101 Tôn Dật Tiên, , Tân Phú, Quận 7, Hồ Chí Minh
+[63] 1058 Đại Lộ Nguyễn Văn Linh, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+[64] 1058 Nguyễn Văn Linh, , Tân Phong, Quận 7, Hồ Chí Minh
+[65] 1362 Đường Huỳnh Tấn Phát, Khu phố 1, P.Phú Mỹ, Q.7, TP.Hồ Chí Minh
+[66] 17/3, Huỳnh Tấn Phát, X.Phú Xuân, H.Nhà Bè, TP.Hồ Chí Minh
+[67] 18 NGUYỄN BÌNH, P.PHÚ XUÂN, H.NHÀ BÈ, TP.HỒ CHÍ MINH
+[68] Số 46, Khu Dân Cư Hưng Phúc (Lô S10 – 2), 196 Nguyễn Lương Bằng, Phường Tân Mỹ, Thành phố Hồ Chí Minh
+[69] 101 Tôn Dật Tiên, Tân Phú, Quận 7, Hồ Chí Minh
+[70] 1058 Đại Lộ Nguyễn Văn Linh, Tân Phong, Quận 7, Hồ Chí Minh
+[71] 26, Hồ Học Lãm, P.16, Q.8, TP.Hồ Chí Minh
+[72] 40 - 54 TUY LÝ VƯƠNG, P.13,Q.8, TP.HỒ CHÍ MINH
+[73] Tầng 2, Trung tâm thương mại Premium Central Plaza, số 854-856 Tạ Quang Bửu, Phường 5, Quận 8, TPHCM
+[74] Tòa nhà Green River 2225 Phạm Thế Hiển, P6, Q.8, TP.Hồ Chí Minh

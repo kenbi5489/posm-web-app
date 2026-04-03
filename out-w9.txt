@@ -1,0 +1,76 @@
+Found 75 rows in W9 for Tan
+[0] 104 Hồ Tùng Mậu, Phường Sài Gòn, TP.HCM
+[1] 391 Trần Hưng Đạo,Phường Cầu Kho,Quận 1,TP. Hồ Chí Minh
+[2] Tầng 3, TTTM Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TP.HCM
+[3] Tầng 3 Gian hàng 3F-01, TTTM Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Phú, Quận 7, TPHCM
+[4] TTTM Crescent Mall, Tầng 3, 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[5] Tầng 3, TTTM Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TP.HCM
+[6] B1F-K1,2,3,4, Tầng B1, Crescent Mall, 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[7] Tầng 4, TTTM Crescent Mall,101 Tôn Dật Tiên, Phường Tân Mỹ, TP.HCM
+[8] Tầng 4, TTTM Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TP.HCM
+[9] 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[10] Tầng 4, Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TP.HCM
+[11] Tầng 05, Crescent Mall, 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[12] Tầng 3, TTTM Crescent Mall, 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[13] 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[14] F3-32 Tầng 3 TTTM The Crescent Mall  - 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[15] VivoCity 2 - Số 02-11 Tầng 2,1058 Nguyễn Văn Linh, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+[16] Saigon Centre
+[17] Saigon Centre
+[18] Tầng 2, Lotte Mart 1, 469 Nguyễn Hữu Thọ, P.Tân Hưng, Q.7, TP.Hồ Chí Minh
+[19] Lô 1F62, tầng trệt - Lotte Mart Nam Sài Gòn, 469 Nguyễn Hữu Thọ, P.Tân Hưng, Q.7, TP.Hồ Chí Minh
+[20] Lô 02-39, Trung tâm thương mại SC Vivo City Nguyễn Văn Linh, 1058 Nguyễn Văn Linh, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+[21] 489 Nguyễn Thị Thập, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+[22] Số 469 Nguyễn Hữu Thọ, Phường Tân Hưng, Quận 7, Thành phố Hồ Chí Minh
+[23] Số 243, Đường Hai Bà Trưng, ​​Phường Võ Thị Sáu, Quận 3, Thành phố Hồ Chí Minh
+[24] Lầu 4, Cresent Mall, 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[25] 5F-53 Tầng 5, Crescent Mall, Số 101 Tôn Dật Tiên, Phường Tân Phú, Quận 7, TPHCM
+[26] 101 Đ. Tôn Dật Tiên, , Tân Phú, Quận 7, Hồ Chí Minh
+[27] Lô 04-12A, Trung tâm thương mại SC Vivo City, Số 1058 Nguyễn Văn Linh, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+[28] Tầng 3 - TTTM SC VivoCity, Phường Tân Hưng, TP. HCM
+[29] 39-41 Nguyễn Thái Bình, P.Nguyễn Thái Binh, Q.1, TP.Hồ Chí Minh
+[30] 101 Đ. Tôn Dật Tiên, , Tân Phú, Quận 7, Hồ Chí Minh
+[31] 260A Pasteur, P.8, Q.3. TP.Hồ Chí Minh
+[32] 635A Điện Biên Phủ, P.1, Q.3, TP.Hồ Chí Minh
+[33] 391B Trần Hưng Đạo, P.Cầu kho, Q.1, TP.Hồ Chí Minh
+[34] 101 Tôn Dật Tiên, , Tân Phú, Quận 7, Hồ Chí Minh
+[35] 870-872 Trần Hưng Đạo, P.7, Q.5, TP.Hồ Chí Minh
+[36] Tầng 4 Crescent Mall, 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[37] Tầng 4, 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+[38] 615A Trần Hưng Đạo, Phường Chợ Quán, TP.HCM
+[39] 744 Trần Hưng Đạo, Phường Chợ Quán, TP.HCM
+[40] 749 Trần Hưng Đạo, phường Chợ Quán, TP.HCM
+[41] Số 99 Nguyễn Văn Cừ, Phường Chợ Quán, TP.HCM
+[42] L3 Số 101, Đường Tôn Dật Tiên, Phường Tân Phú, Quận 7, Thành phố Hồ Chí Minh
+[43] L3 Số 101, Đường Tôn Dật Tiên, Phường Tân Phú, Quận 7, Thành phố Hồ Chí Minh
+[44] Lô 2F-20, tầng 2, TTTM Crescent Mall, 107 Tôn Dật Tiên, P. Tân Phú, Q.7, TP.Hồ Chí Minh
+[45] Siêu thị Lotte Mart (Lầu 1) - 469 Nguyễn Hữu Thọ, P. Tân Hưng, Q.7, TP.HCM
+[46] Tầng GF & 2F, TTTM Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TPHCM
+[47] Tầng 3, TTTM Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TPHCM
+[48] 17/3, Huỳnh Tấn Phát, X.Phú Xuân, H.Nhà Bè, TP.Hồ Chí Minh
+[49] 237 Nguyễn Thị Thập, P. Tân Phú, Quận 7, TP Hồ Chí Minh
+[50] 420 Huỳnh Tấn Phát, P. Bình Thuận, Quận 7, TP Hồ Chí Minh
+[51] 960 đường Huỳnh Tấn Phát, khu phố 17, phường Tân Mỹ, TP.HCM
+[52] Số 469, đường Nguyễn Hữu Thọ, Phường Tân Hưng, TP. Hồ Chí Minh, Việt Nam
+[53] Tầng 4, SC VivoCity, 1058 Nguyễn Văn Linh, KP1, Phường Tân Hưng, TP.HCM
+[54] Vivo city
+[55] Vivo city
+[56] Vivo city
+[57] Vivo city
+[58] Vivo city
+[59] Vivo city
+[60] Vivo city
+[61] Vivo city
+[62] Vivo city
+[63] Vivo city
+[64] Vivo city
+[65] Vivo city
+[66] Vivo city
+[67] Vivo city
+[68] 59-61 Xóm Củi, P.11,Q.8, TP.HCM
+[69] L1-12B, Tầng 1, TTTM Parc Mall, 547-549 Tạ Quang Bửu, P.4, Q.8, TP.Hồ Chí Minh
+[70] Lầu 2, TTTM Parc Mall, Số 195, Đường Cao Lỗ, Phường 4, Quận 8, Thành phố Hồ Chí Minh
+[71] Số 4 Tôn Thất Tùng, P.Bến Thành, Q.1, TP.Hồ Chí Minh
+[72] 26, Hồ Học Lãm, P.16, Q.8, TP.Hồ Chí Minh
+[73] 55A/2 Lê Khả Phiêu, Khu Phố 55, Phường Bình Đông, TP.HCM
+[74] Tầng 4, TTTM Parc Mall, 547 - 549 Đường Tạ Quang Bửu, Phường Chánh Hưng, TP.HCM

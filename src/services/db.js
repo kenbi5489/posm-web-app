@@ -2,13 +2,9 @@ import Dexie from 'dexie';
 
 export const db = new Dexie('POSMTrackerDB');
 
-// Handle db version upgrades across multiple tabs
-db.on('versionchange', function (event) {
-  // Automatically close to allow the new version to upgrade
+// When another tab opens a newer DB version, close this connection gracefully.
+db.on('versionchange', function () {
   db.close();
-  console.warn("Database version changed. Closing old connection.");
-  // Optional: reload the page to get the new version
-  window.location.reload();
 });
 
 db.version(3).stores({
@@ -28,15 +24,23 @@ db.version(4).stores({
   await tx.table('posmData').clear();
 });
 
-// Version 5: Index pic, force re-sync to enable auto-geocoding
-db.version(5).stores({
+// Version 11: Flush cache to trigger full native Google Maps Geocoding integration
+db.version(11).stores({
   users: 'user_id, user_name, ho_ten, role',
   posmData: '++id, job_code, brand, pic_id, status, district, week, pic',
   acceptanceData: '++id, job_code',
   syncQueue: '++id, type, payload, timestamp'
 }).upgrade(async tx => {
-  // Clear to force fresh sync so geocoding can run on missing coords
   await tx.table('posmData').clear();
+});
+
+// Version 12: Add checkins table for GPS visit verification evidence
+db.version(12).stores({
+  users: 'user_id, user_name, ho_ten, role',
+  posmData: '++id, job_code, brand, pic_id, status, district, week, pic',
+  acceptanceData: '++id, job_code',
+  syncQueue: '++id, type, payload, timestamp',
+  checkins: '++id, job_code, pic_id, checkin_time, result'
 });
 
 export const masterReset = async () => {

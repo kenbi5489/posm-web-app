@@ -10,13 +10,18 @@ const Dashboard = () => {
   const [week, setWeek] = useState('All');
   const [brand, setBrand] = useState('All');
   const [data, setData] = useState([]);
+  const [checkins, setCheckins] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const allData = await db.posmData.toArray();
+      const [allData, checkinData] = await Promise.all([
+        db.posmData.toArray(),
+        db.checkins ? db.checkins.toArray() : Promise.resolve([]),
+      ]);
       setData(allData);
+      setCheckins(checkinData);
       setLoading(false);
     };
     loadData();
@@ -27,11 +32,26 @@ const Dashboard = () => {
     const staffName = selectedStaff?.ho_ten || (user.role === 'staff' ? user.ho_ten : null);
     
     let baseData = data;
-    if (picId) {
-      baseData = data.filter(item => item.pic_id === picId || item.pic === staffName);
+    if (picId || staffName) {
+      const matchId = picId ? picId.toString().trim() : null;
+      const normalizedStaffName = staffName ? staffName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : null;
+
+      baseData = data.filter(item => {
+        const itemPicId = (item.pic_id || '').toString().trim();
+        const matchById = matchId && itemPicId && (itemPicId === matchId);
+        
+        const itemPic = item.pic ? item.pic.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
+        const matchByName = normalizedStaffName && itemPic && (itemPic === normalizedStaffName || itemPic.includes(normalizedStaffName) || normalizedStaffName.includes(itemPic));
+
+        return matchById || matchByName;
+      });
     }
 
-    const uWeeks = [...new Set(baseData.map(i => i.week))].filter(Boolean).sort();
+    const uWeeks = [...new Set(baseData.map(i => i.week))].filter(Boolean).sort((a, b) => {
+      const nA = parseInt((a || '').replace(/\D/g, ''), 10) || 0;
+      const nB = parseInt((b || '').replace(/\D/g, ''), 10) || 0;
+      return nA - nB;
+    });
     const uBrands = [...new Set(baseData.map(i => i.brand))].filter(Boolean).sort();
 
     let finalData = baseData;
@@ -40,7 +60,15 @@ const Dashboard = () => {
 
     const total = finalData.length;
     const done = finalData.filter(item => item.status === 'Done').length;
-    
+
+    // Check-in stats
+    const myCheckins = checkins.filter(c => {
+      const picId = (selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null) || '').toString();
+      return !picId || c.pic_id === picId;
+    });
+    const verified = myCheckins.filter(c => c.result === 'verified').length;
+    const review = myCheckins.filter(c => c.result === 'manual_review').length;
+
     return {
       uniqueWeeks: uWeeks,
       uniqueBrands: uBrands,
@@ -48,10 +76,12 @@ const Dashboard = () => {
         total,
         done,
         pending: total - done,
-        percent: Math.min(100, Math.round((done / 75) * 100))
+        percent: Math.min(100, Math.round((done / Math.max(total, 1)) * 100)),
+        verified,
+        review,
       }
     };
-  }, [data, user, selectedStaff, week, brand]);
+  }, [data, checkins, user, selectedStaff, week, brand]);
 
   if (loading) return <div className="p-10 text-center animate-pulse">Đang nạp dữ liệu...</div>;
 
@@ -84,35 +114,35 @@ const Dashboard = () => {
 
       {/* Summary Grid */}
       <section className="grid grid-cols-2 gap-4">
-        <StatCard 
-          icon={<LayoutGrid className="text-blue-600" size={20} />} 
-          label="Tổng điểm" 
-          value={stats.total} 
+        <StatCard
+          icon={<LayoutGrid className="text-indigo-600" size={20} />}
+          label="Tổng số điểm"
+          value={stats.total}
+          color="bg-indigo-50"
+        />
+        <StatCard
+          icon={<CheckCircle2 className="text-emerald-600" size={20} />}
+          label="Đã hoàn thành"
+          value={stats.done}
+          color="bg-emerald-50"
+        />
+        <StatCard
+          icon={<CircleDashed className="text-amber-600" size={20} />}
+          label="Cần thực hiện"
+          value={stats.pending}
+          color="bg-amber-50"
+        />
+        <StatCard
+          icon={<TrendingUp className="text-blue-600" size={20} />}
+          label="Hiệu suất tuyến"
+          value={`${stats.percent}%`}
           color="bg-blue-50"
-        />
-        <StatCard 
-          icon={<CheckCircle2 className="text-done" size={20} />} 
-          label="Hoàn thành" 
-          value={stats.done} 
-          color="bg-green-50"
-        />
-        <StatCard 
-          icon={<CircleDashed className="text-accent" size={20} />} 
-          label="Chưa xong" 
-          value={stats.pending} 
-          color="bg-orange-50"
-        />
-        <StatCard 
-          icon={<TrendingUp className="text-secondary" size={20} />} 
-          label="Tỷ lệ xong" 
-          value={`${stats.percent}%`} 
-          color="bg-teal-50"
         />
       </section>
 
       {/* Progress Ring Section */}
-      <div className="bg-white p-8 rounded-[2.5rem] shadow-soft flex flex-col items-center justify-center space-y-4 border border-slate-50 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+      <div id="tour-progress-card" className="bg-white p-8 rounded-[2.5rem] shadow-soft flex flex-col items-center justify-center space-y-4 border border-slate-50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-3xl" />
         <div className="relative w-48 h-48">
            <svg className="w-full h-full transform -rotate-90">
              <circle
@@ -132,26 +162,29 @@ const Dashboard = () => {
                transition={{ duration: 1.5, ease: "easeOut" }}
                strokeLinecap="round"
                fill="transparent"
-               className="text-primary"
+               className="text-indigo-600"
              />
            </svg>
            <div className="absolute inset-0 flex flex-col items-center justify-center">
              <span className="text-4xl font-black text-slate-800">{stats.percent}%</span>
-             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tiến độ tuần</span>
+             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Hoàn thành</span>
            </div>
         </div>
+        <Link to="/map" className="w-full py-4 bg-indigo-600 text-white text-center font-black rounded-2xl shadow-premium-indigo active:scale-95 transition-all text-sm uppercase tracking-widest">
+            Chạy tuyến ngay
+        </Link>
       </div>
 
       {/* Quick Access */}
       <div className="space-y-4">
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">Truy cập nhanh</h3>
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">TRUY CẬP NHANH</h3>
         <div className="grid grid-cols-3 gap-4">
-          <QuickLink to="/map" icon={<MapPin size={24} />} label="Bản đồ" color="bg-indigo-500" />
-          <QuickLink to="/list" icon={<ListChecks size={24} />} label="Danh sách" color="bg-emerald-500" />
+          <QuickLink to="/map" icon={<MapPin size={24} />} label="Tuyến đường" color="bg-indigo-600" />
+          <QuickLink to="/list" icon={<ListChecks size={24} />} label="Danh sách" color="bg-slate-800" />
           {user.role === 'admin' ? (
-            <QuickLink to="/admin-stats" icon={<TrendingUp size={24} />} label="Báo cáo" color="bg-indigo-700" />
+            <QuickLink to="/admin-stats" icon={<TrendingUp size={24} />} label="Báo cáo" color="bg-indigo-900" />
           ) : (
-            <QuickLink to="/district" icon={<LayoutGrid size={24} />} label="Theo quận" color="bg-amber-500" />
+            <QuickLink to="/district" icon={<LayoutGrid size={24} />} label="Bộ lọc" color="bg-amber-500" />
           )}
         </div>
       </div>

@@ -11,7 +11,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
   const [success, setSuccess] = useState(false);
 
   // Form State
-  const [storeStatus, setStoreStatus] = useState('Sitecheck');
+  const [storeStatus, setStoreStatus] = useState('Site check');
   const [posmStatus, setPosmStatus] = useState('Có POSM');
   const [reasonNoPosm, setReasonNoPosm] = useState('Chính sách cửa hàng');
   const [paymentKnowledge, setPaymentKnowledge] = useState('Nhân viên biết thanh toán');
@@ -30,21 +30,49 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
       return;
     }
 
-    const newImages = await Promise.all(files.map(file => {
+    const compressImage = (file) => {
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-          resolve({
-            file,
-            preview: URL.createObjectURL(file),
-            base64: reader.result,
-            name: `posm_${item.job_code}_${Date.now()}.jpg`,
-            type: file.type
-          });
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let width = img.width;
+            let height = img.height;
+
+            // Downscale image logically to save bandwidth
+            const MAX_DIMENSION = 1200;
+            if (width > height && width > MAX_DIMENSION) {
+              height *= MAX_DIMENSION / width;
+              width = MAX_DIMENSION;
+            } else if (height > MAX_DIMENSION) {
+              width *= MAX_DIMENSION / height;
+              height = MAX_DIMENSION;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Compress to 70% quality JPEG
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+            resolve({
+              file,
+              preview: compressedBase64,
+              base64: compressedBase64,
+              name: `posm_${item?.job_code || 'JOB'}_${Date.now()}.jpg`,
+              type: 'image/jpeg'
+            });
+          };
+          img.src = reader.result;
         };
         reader.readAsDataURL(file);
       });
-    }));
+    };
+
+    const newImages = await Promise.all(files.map(file => compressImage(file)));
 
     setImages([...images, ...newImages]);
   };
@@ -61,34 +89,68 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
     setError(null);
 
     try {
-      const payload = {
-        employeeName: user?.ho_ten || user?.user_name || "Lao dong tu do",
-        staffName: user?.ho_ten || user?.user_name || "Lao dong tu do",
-        brand: item.brand || "Unknown Brand",
-        address: item.address || "N/A",
-        mallName: item.mall_name || "N/A",
-        locationType: item.location_type || "N/A",
-        district: item.district || "N/A",
-        city: item.city || "N/A",
-        posmStatus: posmStatus || "Có POSM",
-        frame: item.frame || "N/A",
-        jobCode: item.job_code || "",
+      const mappedPosmStatus = posmStatus === 'Có POSM' 
+        ? 'Có POSM, NV thanh toán được' 
+        : 'KHÔNG POSM, NV thanh toán được';
 
+      const payload = {
+        // Index 0 -> Col B: Tên nhân viên
+        employeeName: user?.ho_ten || user?.user_name || "Lao dong tu do",
+        
+        // Index 1 -> Col C: Brand
+        brand: item.brand || "Unknown Brand",
+        
+        // Index 2 -> Col D: Địa chỉ
+        address: item.address || "N/A",
+        
+        // Index 3 -> Col E: Mã cv
+        jobCode: item.job_code || "",
+        
+        // Index 4 -> Col F: Project
+        project: "UrGift",
+        
+        // Index 5 -> Col G: Hình thức thanh toán (Hidden)
+        paymentType: "N/A",
+        
+        // Index 6 -> Col H: Hoạt động UrGift
+        // Khi KHÔNG POSM: hiển thị lý do cụ thể. Khi Có POSM: hiển thị loại hoạt động.
+        storeStatus: posmStatus === 'KHÔNG POSM' ? (reasonNoPosm || storeStatus || "Site check") : (storeStatus || "Site check"),
+        
+        // Index 7 -> Col I: Quản lý
+        manager: "N/A",
+        
+        // Index 8 -> Col J: Số điện thoại
+        phone: "N/A",
+        
+        // Index 9 -> Col K: Có POSM không? (Short version for script mapping)
+        posmStatus: posmStatus, 
+        
+        // --- Keys for Column BF (and fallback Mapping) ---
+        "Tình trạng POSM": posmStatus,
+        "posm_status": posmStatus,
+        "POSM_Status": posmStatus,
+
+        // Extra metadata (landing in subsequent columns L, M, ...)
+        noPosmReason: posmStatus === 'KHÔNG POSM' ? (reasonNoPosm || "Chưa rõ lý do") : "N/A",
+        paymentStatus: paymentKnowledge || "N/A",
+        note: note || `Báo cáo cho mã ${item.job_code}`,
+
+        // Images (usually landing in AK, AN, ...)
         image1: images?.[0]?.base64 || "",
         image1Name: images?.[0]?.name || "image1.jpg",
         image1Type: images?.[0]?.type || "image/jpeg",
-
         image2: images?.[1]?.base64 || "",
         image2Name: images?.[1]?.name || "image2.jpg",
         image2Type: images?.[1]?.type || "image/jpeg",
-
-        storeStatus: storeStatus || "Sitecheck",
-        noPosmReason: posmStatus === 'KHÔNG POSM' ? (reasonNoPosm || "Chưa rõ lý do") : "N/A",
-        paymentStatus: paymentKnowledge || "N/A",
-        note: note || `Báo cáo cho mã ${item.job_code}`
+        
+        // Caching info for later retrieval
+        mallName: item.mall_name || "N/A",
+        locationType: item.location_type || "N/A",
+        district: item.district || "N/A",
+        city: item.city || "N/A"
       };
 
-      console.log("SENDING PAYLOAD TO GAS:", payload);
+      console.log("SENDING ORDERED PAYLOAD TO GAS:", payload);
 
       const response = await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
@@ -103,7 +165,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
 
       if (result.status === 'success' || result.status === 'done' || result.success) {
         setSuccess(true);
-        if (onSuccess) onSuccess({ ...item, status: 'Done', posm_status: posmStatus });
+        if (onSuccess) onSuccess({ ...item, status: 'Done', posm_status: mappedPosmStatus });
         setTimeout(() => onClose(), 2000);
       } else {
         setError(result.message || "Script báo thiếu thông tin hoặc sai cấu trúc.");
@@ -227,7 +289,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                         onChange={(e) => setStoreStatus(e.target.value)}
                         className="w-full p-4 bg-white rounded-2xl text-sm font-bold text-slate-800 border border-slate-100 shadow-sm outline-none"
                       >
-                        <option value="Sitecheck">🏪 Sitecheck (Bình thường)</option>
+                        <option value="Site check">🏪 Sitecheck (Bình thường)</option>
                         <option value="Cửa hàng onboard">✅ Cửa hàng onboard</option>
                         <option value="Không hợp tác">🤝 Không hợp tác</option>
                         <option value="Đóng cửa">🚫 Cửa hàng đóng cửa</option>
