@@ -62,6 +62,7 @@ export const useSync = (user) => {
           status: 'On-going', // DEFAULT
           completion_date: '',
           portal_id: getVal(row, 'Tài khoản Portal'),
+          posm_status_master: getVal(row, 'POSM_Status'),
           lat: isNaN(latRaw) ? null : latRaw,
           lng: isNaN(lngRaw) ? null : lngRaw,
           pic_id: (getVal(row, 'pic_id') || '').toString().trim(),
@@ -109,7 +110,7 @@ export const useSync = (user) => {
           job_code: (row['Mã cv (theo mã trong file chia. VD: QC1)'] || row['Mã cv'] || row['jobCode'] || row['Mã CV'])?.toString().trim(),
           image1: row['Link 1'] || row['Ảnh 1'] || '',
           image2: row['Link 2'] || row['Ảnh 2'] || '',
-          posm_status: row['POSM_Status'] || row['Tình trạng POSM'] || '',
+          posm_status: row['POSM_Status'] || row['POSM Status'] || row['Tình trạng POSM'] || '',
           note: row['Ghi chú'] || ''
         }))
         .filter(item => item.job_code && item.job_code.length > 0);

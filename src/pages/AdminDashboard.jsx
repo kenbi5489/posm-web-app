@@ -1,141 +1,181 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/db';
-import { fetchUsers } from '../services/api';
-import { TrendingUp, CheckCircle, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { fetchAcceptanceData } from '../services/api';
+import { TrendingUp, LayoutGrid, CheckCircle2, Image as ImageIcon, MapPin, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const AdminDashboard = () => {
-  const [staffStats, setStaffStats] = useState([]);
-  const [currentWeek, setCurrentWeek] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
+    posm: [],
+    reports: [],
+    loading: true
+  });
+  const [selectedImage, setSelectedImage] = useState(null);
 
   useEffect(() => {
-    const loadAdminStats = async () => {
-      const users = await fetchUsers();
-      const allStaff = users.filter(u => u.role === 'staff');
-      const allData = await db.posmData.toArray();
-      const allCheckins = db.checkins ? await db.checkins.toArray() : [];
+    const load = async () => {
+      try {
+        const [posm, reports] = await Promise.all([
+          db.posmData.toArray(),
+          fetchAcceptanceData()
+        ]);
+        
+        // Map reports to standard fields based on Sheet headers
+        const mappedReports = (reports || []).map(r => ({
+          timestamp: r["Timestamp"] || r["Thời gian"],
+          job_code: r["Mã CV"] || r["Job Code"],
+          brand: r["Brand"] || r["Tên Brand"],
+          image1: r["Hình ảnh 1"] || r["Image 1"] || r["image1"],
+          status: r["Trạng thái"] || r["Status"] || r["posmStatus"],
+          pic: r["Mã NV"] || r["Staff"]
+        })).filter(r => r.image1); // Only show reports with images
 
-      // Detect latest week numerically (W14 > W9)
-      const weeks = [...new Set(allData.map(d => String(d.week || '').trim()).filter(Boolean))]
-        .filter(w => { 
-          const n = parseInt(String(w || '').replace(/\D/g,''), 10) || 0; 
-          return n >= 14 && n < 50; 
-        })
-        .sort((a,b) => (parseInt(String(a || '').replace(/\D/g,''),10)||0) - (parseInt(String(b || '').replace(/\D/g,''),10)||0));
-      const latestWeek = weeks.slice(-1)[0] || '';
-
-      const currentWeekData = allData.filter(d => String(d.week||'').trim() === String(latestWeek || '').trim());
-
-
-      const stats = allStaff.map(staff => {
-        const staffData = currentWeekData.filter(
-          d => d.pic_id === staff.user_id || d.pic === staff.ho_ten
-        );
-        const staffCheckins = allCheckins.filter(c => c.pic_id === staff.user_id?.toString());
-        const total = staffData.length;
-        const done = staffData.filter(d => d.status === 'Done').length;
-        const verified = staffCheckins.filter(c => c.result === 'verified').length;
-        const review = staffCheckins.filter(c => c.result === 'manual_review').length;
-        const percent = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-
-        return { ...staff, total, done, pending: total - done, verified, review, percent };
-      });
-
-      setStaffStats(stats.filter(s => s.total > 0));
-      setCurrentWeek(latestWeek);
-      setLoading(false);
+        setData({
+          posm,
+          reports: mappedReports.slice(0, 50), // Show latest 50
+          loading: false
+        });
+      } catch (err) {
+        console.error('AdminDashboard Load Error:', err);
+        setData(v => ({ ...v, loading: false }));
+      }
     };
-    loadAdminStats();
+    load();
   }, []);
 
-  if (loading) return <div className="p-10 text-center animate-pulse">Đang tải báo cáo tổng quát...</div>;
+  const stats = useMemo(() => {
+    const total = data.posm.length;
+    const done = data.posm.filter(i => i.status === 'Done' || i.status === 'Hoàn tất').length;
+    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+    
+    const districts = {};
+    data.posm.forEach(i => {
+      const d = String(i.district || 'Khác').trim();
+      if (!districts[d]) districts[d] = { name: d, total: 0, done: 0 };
+      districts[d].total++;
+      if (i.status === 'Done' || i.status === 'Hoàn tất') districts[d].done++;
+    });
+
+    return { total, done, rate, districts: Object.values(districts).sort((a,b) => b.total - a.total) };
+  }, [data]);
+
+  if (data.loading) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
+       <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang tải báo cáo sếp...</p>
+    </div>
+  );
 
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <div className="p-3 bg-indigo-600 rounded-2xl text-white shadow-premium">
-          <TrendingUp size={24} />
-        </div>
+    <div className="min-h-screen bg-white pb-32 animate-fade-in">
+      {/* Header - Simple & Clean */}
+      <div className="sticky top-0 z-30 bg-white border-b border-slate-100 px-6 py-5 flex justify-between items-center bg-white/80 backdrop-blur-md">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Báo cáo tổng hợp</h2>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            Hiệu suất nhân viên • {currentWeek || 'Tuần này'}
-          </p>
+          <h2 className="text-xl font-black text-indigo-900 tracking-tight">BÁO CÁO TỔNG QUAN</h2>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Dữ liệu thực tế điểm POSM</p>
+        </div>
+        <div className="h-10 w-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+           <TrendingUp size={20} />
         </div>
       </div>
 
-      {/* Manual Review Alert */}
-      {staffStats.some(s => s.review > 0) && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-          <AlertTriangle className="text-amber-500 shrink-0 mt-0.5" size={20} />
-          <div>
-            <p className="font-bold text-amber-800 text-sm">Có check-in cần duyệt tay</p>
-            <p className="text-xs text-amber-600 mt-0.5">
-              {staffStats.filter(s => s.review > 0).map(s => `${s.ho_ten} (${s.review})`).join(' · ')}
-            </p>
+      {/* KPI Section - Large & Clear */}
+      <div className="px-5 py-8 space-y-8">
+        <div className="grid grid-cols-2 gap-4">
+           <div className="bg-slate-900 p-6 rounded-[2.5rem] text-white">
+              <p className="text-[9px] font-black opacity-40 uppercase tracking-widest mb-1">Tổng độ phủ</p>
+              <h4 className="text-4xl font-black">{stats.total}</h4>
+              <p className="text-[10px] font-bold opacity-60 mt-1 uppercase">Điểm triển khai</p>
+           </div>
+           <div className="bg-indigo-600 p-6 rounded-[2.5rem] text-white shadow-lg shadow-indigo-100">
+              <p className="text-[9px] font-black opacity-60 uppercase tracking-widest mb-1">Hoàn tất (%)</p>
+              <h4 className="text-4xl font-black">{stats.rate}%</h4>
+              <p className="text-[10px] font-bold opacity-80 mt-1 uppercase">{stats.done} điểm đã báo cáo</p>
+           </div>
+        </div>
+
+        {/* Real Report Grid - Professional grid */}
+        <section className="space-y-4">
+          <div className="flex justify-between items-center px-2">
+            <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+               <ImageIcon size={14} className="text-indigo-400" /> HÌNH ẢNH MỚI NHẤT ({data.reports.length})
+            </h3>
+            <span className="text-[8px] font-black bg-slate-50 text-slate-400 px-2 py-1 rounded-full uppercase">Cloud Data</span>
           </div>
-        </div>
-      )}
 
-      {staffStats.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 font-bold text-sm">
-          Không có dữ liệu cho {currentWeek}
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {staffStats.map((staff, idx) => (
-            <motion.div
-              key={staff.user_id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05 }}
-              className="bg-white p-6 rounded-[2rem] shadow-soft border border-slate-50 space-y-4"
-            >
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-indigo-600 font-bold">
-                    {staff.ho_ten.charAt(0)}
-                  </div>
-                  <div>
-                    <h3 className="text-base font-black text-slate-800 leading-tight">{staff.ho_ten}</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{staff.user_id}</p>
-                  </div>
+          <div className="grid grid-cols-2 xs:grid-cols-3 gap-3">
+             {data.reports.map((report, idx) => (
+                <div 
+                  key={idx}
+                  onClick={() => setSelectedImage(report)}
+                  className="aspect-square bg-slate-100 rounded-3xl overflow-hidden relative group active:scale-95 transition-all shadow-sm"
+                >
+                   <img 
+                    src={report.image1} 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    alt="POSM"
+                   />
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent p-3 flex flex-col justify-end">
+                      <p className="text-[8px] font-black text-white uppercase truncate">{report.brand}</p>
+                      <p className="text-[7px] font-bold text-white/60 uppercase">{report.job_code}</p>
+                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-2xl font-black text-indigo-600 leading-none">{staff.percent}%</span>
-                  <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-1">Hoàn thành</p>
+             ))}
+             {data.reports.length === 0 && (
+                <div className="col-span-full py-12 text-center bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                   <p className="text-sm font-bold text-slate-300 uppercase tracking-widest">Không có ảnh nào trên hệ thống</p>
                 </div>
-              </div>
+             )}
+          </div>
+        </section>
 
-              <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${staff.percent}%` }}
-                  className="h-full bg-indigo-500 rounded-full"
-                />
-              </div>
+        {/* Area Progress - Simple list */}
+        <section className="space-y-4 pt-4 border-t border-slate-50">
+           <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-2">
+             <MapPin size={14} className="text-indigo-400" /> TIẾN ĐỘ THEO QUẬN
+           </h3>
+           <div className="space-y-2">
+              {stats.districts.map((d) => (
+                 <div key={d.name} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                    <p className="text-xs font-black text-slate-800 uppercase leading-none">{d.name}</p>
+                    <div className="flex items-center gap-4">
+                       <span className="text-[10px] font-black text-slate-400">{d.done}/{d.total} Done</span>
+                       <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${(d.done/d.total)*100}%` }} />
+                       </div>
+                    </div>
+                 </div>
+              ))}
+           </div>
+        </section>
+      </div>
 
-              <div className="grid grid-cols-5 gap-2">
-                <MiniStat label="Tổng" value={staff.total} color="text-slate-600" />
-                <MiniStat label="Xong" value={staff.done} color="text-done" />
-                <MiniStat label="Chờ" value={staff.pending} color="text-accent" />
-                <MiniStat label="✅ GPS" value={staff.verified} color="text-green-600" />
-                <MiniStat label="🔍 Duyệt" value={staff.review} color="text-amber-600" />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+      {/* LIGHTBOX PREVIEW */}
+      <AnimatePresence>
+        {selectedImage && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-md p-6 flex flex-col items-center justify-center gap-6"
+          >
+             <div className="relative w-full max-w-sm aspect-[3/4] bg-slate-800 rounded-[3rem] overflow-hidden shadow-2xl">
+                <img src={selectedImage.image1} className="w-full h-full object-contain" alt="Full Preview" />
+             </div>
+             <div className="text-center text-white space-y-2">
+                <h4 className="text-lg font-black uppercase tracking-tight">{selectedImage.brand}</h4>
+                <div className="flex gap-4 justify-center">
+                   <span className="text-[10px] font-bold text-white/40 uppercase">PIC: {selectedImage.pic}</span>
+                   <span className="text-[10px] font-bold text-white/40 uppercase">TIME: {selectedImage.timestamp}</span>
+                </div>
+                <button className="mt-6 px-12 py-3 bg-white text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest">Đóng</button>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
-const MiniStat = ({ label, value, color }) => (
-  <div className="bg-slate-50/50 p-2 rounded-xl text-center">
-    <p className={`text-lg font-black ${color}`}>{value}</p>
-    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">{label}</p>
-  </div>
-);
 
 export default AdminDashboard;

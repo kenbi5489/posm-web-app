@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft } from 'lucide-react';
+import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft, Link as LinkIcon, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import ReportModal from '../components/ReportModal';
@@ -31,32 +31,23 @@ const LocationDetail = () => {
   }, [jobCode, brand]);
 
   const handleReportSuccess = async (updatedItem) => {
-    // This is called when the Modal successfully submits to GAS
-    // We update the local Dexie DB to reflect completion
     await db.posmData.put(updatedItem);
-    
-    // Also save a local record of acceptance for offline viewing
     await db.acceptanceData.put({
       job_code: updatedItem.job_code,
       posm_status: updatedItem.posm_status,
       timestamp: Date.now()
     });
-
     setItem(updatedItem);
   };
 
   const handleIncomplete = async () => {
-    // Optimistic UI update for reverting
     const updated = { ...item, status: 'On-going', completion_date: '' };
     await db.posmData.put(updated);
-    
-    // Add to sync queue to revert
     await db.syncQueue.add({
       type: 'COMPLETE_POSM',
       payload: { jobCode: item.job_code, brand: item.brand, status: 'On-going' },
       timestamp: Date.now()
     });
-
     setItem(updated);
     setReverting(false);
   };
@@ -67,17 +58,17 @@ const LocationDetail = () => {
     window.open(url, '_blank');
   };
 
-  if (loading) return <div className="p-10 text-center animate-pulse">Đang tải...</div>;
-  if (!item) return <div className="p-10 text-center">Không tìm thấy thông tin</div>;
+  if (loading) return <div className="p-10 text-center animate-pulse text-indigo-400 font-black uppercase text-xs tracking-widest">Đang tải dữ liệu...</div>;
+  if (!item) return <div className="p-10 text-center font-bold text-slate-400">Không tìm thấy thông tin điểm POSM</div>;
 
   const isDone = item.status === 'Done';
 
   return (
-    <div className="flex flex-col min-h-full bg-slate-50 animate-fade-in">
+    <div className="flex flex-col min-h-full bg-slate-50/50 animate-fade-in pb-24">
       {/* Navigation Header */}
-      <div className="bg-white p-4 flex items-center gap-4 sticky top-0 z-10 shadow-sm">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full active:bg-slate-100">
-          <ChevronLeft size={24} className="text-slate-800" />
+      <div className="bg-white p-6 flex items-center gap-4 sticky top-0 z-50 shadow-sm border-b border-slate-100">
+        <button onClick={() => navigate(-1)} className="p-3 -ml-3 rounded-2xl active:bg-slate-100 transition-colors">
+          <ChevronLeft size={24} className="text-slate-900" />
         </button>
         <h2 className="text-lg font-black text-slate-900 truncate uppercase tracking-tight">{item.brand}</h2>
       </div>
@@ -85,63 +76,81 @@ const LocationDetail = () => {
       <div className="p-6 space-y-6">
         {/* Status Banner */}
         {isDone ? (
-          <div className="bg-green-500 text-white p-5 rounded-3xl shadow-premium flex items-center gap-4">
-            <CheckCircle size={32} />
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest opacity-80">Hoàn thành ngày</p>
-              <p className="text-xl font-black">{item.completion_date}</p>
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-indigo-600 text-white p-7 rounded-[2.5rem] shadow-premium-indigo flex items-center gap-6"
+          >
+            <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center shadow-inner">
+               <CheckCircle size={40} className="text-white" />
             </div>
-          </div>
-        ) : (
-          <div className="bg-orange-500 text-white p-5 rounded-3xl shadow-premium flex items-center gap-4">
-            <Calendar size={32} />
             <div>
-              <p className="text-xs font-black uppercase tracking-widest opacity-80">Ngày triển khai</p>
-              <p className="text-xl font-black">{item.date_assigned || 'W1'}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">TRẠNG THÁI HOÀN TẤT</p>
+              <p className="text-xl font-black">{item.completion_date || 'Đã báo cáo'}</p>
+            </div>
+          </motion.div>
+        ) : (
+          <div className="bg-amber-500 text-white p-7 rounded-[2.5rem] shadow-premium-amber flex items-center gap-6">
+            <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center shadow-inner">
+               <Calendar size={40} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">KẾ HOẠCH TRIỂN KHAI</p>
+              <p className="text-xl font-black">Tuần: {item.week || 'W1'}</p>
             </div>
           </div>
         )}
 
-        {/* Details Card */}
-        <div className="bg-white rounded-[2rem] p-8 shadow-soft space-y-8 border border-slate-50">
-          <DetailRow icon={<Hash className="text-blue-500" />} label="Mã công việc" value={item.job_code} />
-          <DetailRow icon={<MapPin className="text-red-500" />} label="Địa chỉ" value={item.address} />
-          <DetailRow icon={<Briefcase className="text-slate-500" />} label="Portal Account" value={item.portal_id || 'N/A'} />
-          <DetailRow icon={<UserCircle className="text-teal-500" />} label="PIC phụ trách" value={item.pic} />
+        {/* Main Details Card (Full Info Request) */}
+        <div className="bg-white rounded-[3rem] p-10 shadow-soft space-y-8 border border-slate-100/50">
+          <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Thông tin đầy đủ</h3>
+          <DetailRow icon={<MapPin className="text-indigo-500" />} label="Địa chỉ" value={item.address} />
+          <DetailRow icon={<Hash className="text-indigo-500" />} label="Mã QC" value={item.job_code} />
+          <DetailRow icon={<Briefcase className="text-indigo-500" />} label="tk Portal" value={item.portal_id || 'N/A'} />
+          <DetailRow icon={<CheckCircle size={20} className="text-indigo-500" />} label="Trạng thái POSM" value={acceptance?.posm_status || item.posm_status_master || 'Chưa báo cáo'} />
         </div>
 
-        {/* Acceptance Info */}
+        {/* Acceptance Info (Enhanced for Request) */}
         {isDone && acceptance && (
-          <div className="bg-white rounded-[2rem] p-8 shadow-soft space-y-6 border border-slate-50">
-            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-              <CheckCircle className="text-done" size={20} />
+          <motion.div 
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-white rounded-[3rem] p-10 shadow-soft space-y-8 border border-slate-100/50"
+          >
+            <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] flex items-center gap-2">
+              <CheckCircle className="text-green-500" size={14} />
               Thông tin nghiệm thu
             </h3>
-            <div className="space-y-6 pt-2">
-              <DetailRow icon={<CheckCircle className="text-green-500" />} label="Tình trạng POSM" value={acceptance.posm_status || 'Không rõ'} />
-              <DetailRow icon={<Hash className="text-orange-500" />} label="Ghi chú" value={acceptance.note || 'Không có ghi chú'} />
+            
+            <div className="space-y-8">
+              <DetailRow icon={<MessageCircle className="text-indigo-400" />} label="Ghi chú" value={acceptance.note || 'Không có ghi chú từ nhân viên'} />
               
-              <div className="pt-2 border-t border-slate-100 flex gap-4">
-                {acceptance.image1 && (
-                  <a href={acceptance.image1} target="_blank" rel="noreferrer" className="flex-1 bg-indigo-50 text-indigo-600 font-black py-4 rounded-2xl text-center text-[10px] uppercase tracking-widest active:scale-95 transition-transform border border-indigo-100 shadow-sm">
-                    Mở Ảnh 1
-                  </a>
-                )}
-                {acceptance.image2 && (
-                  <a href={acceptance.image2} target="_blank" rel="noreferrer" className="flex-1 bg-indigo-50 text-indigo-600 font-black py-4 rounded-2xl text-center text-[10px] uppercase tracking-widest active:scale-95 transition-transform border border-indigo-100 shadow-sm">
-                    Mở Ảnh 2
-                  </a>
-                )}
-                {!acceptance.image1 && !acceptance.image2 && (
-                  <p className="text-slate-400 text-xs italic font-medium w-full text-center">Không có ảnh nghiệm thu</p>
-                )}
+              <div className="pt-6 border-t border-slate-50">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Ảnh nghiệm thu</p>
+                <div className="flex gap-4">
+                  {acceptance.image1 ? (
+                    <a href={acceptance.image1} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
+                      <LinkIcon size={14} /> Ảnh 1
+                    </a>
+                  ) : (
+                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Link 1</div>
+                  )}
+                  
+                  {acceptance.image2 ? (
+                    <a href={acceptance.image2} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
+                      <LinkIcon size={14} /> Ảnh 2
+                    </a>
+                  ) : (
+                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Link 2</div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* Real Map Embed */}
-        <div className="w-full h-48 bg-slate-200 rounded-3xl overflow-hidden shadow-inner relative border border-slate-100">
+        {/* Map Preview */}
+        <div className="w-full h-56 bg-slate-200 rounded-[2.5rem] overflow-hidden shadow-inner relative border-4 border-white">
              <iframe
                 title="Google Maps"
                 width="100%"
@@ -153,39 +162,41 @@ const LocationDetail = () => {
              />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 pb-12">
           <button 
             onClick={handleDirections}
-            className="flex flex-col items-center justify-center gap-2 bg-white text-slate-800 font-black py-6 rounded-[2rem] shadow-soft border border-slate-100 active:scale-95 transition-transform"
+            className="flex flex-col items-center justify-center gap-3 bg-white text-slate-800 font-black py-8 rounded-[2.5rem] shadow-soft border border-slate-100 active:scale-95 transition-transform"
           >
-            <Navigation className="text-primary" />
+            <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
+               <Navigation size={24} />
+            </div>
             <span className="text-[10px] uppercase tracking-widest">Dẫn đường</span>
           </button>
           
-          <button className="flex flex-col items-center justify-center gap-2 bg-white text-slate-800 font-black py-6 rounded-[2rem] shadow-soft border border-slate-100 active:scale-95 transition-transform">
-            <Hash className="text-slate-400" />
-            <span className="text-[10px] uppercase tracking-widest">Ghi chú</span>
-          </button>
+          {!isDone ? (
+             <button 
+                onClick={() => setIsReportModalOpen(true)}
+                className="flex flex-col items-center justify-center gap-3 bg-indigo-600 text-white font-black py-8 rounded-[2.5rem] shadow-premium-indigo active:scale-95 transition-transform"
+             >
+                <div className="p-3 bg-white/20 rounded-2xl">
+                    <FileEdit size={24} />
+                </div>
+                <span className="text-[10px] uppercase tracking-widest">Báo cáo</span>
+             </button>
+          ) : (
+            <button 
+                onClick={() => setReverting(true)}
+                className="flex flex-col items-center justify-center gap-3 bg-white text-slate-400 font-black py-8 rounded-[2.5rem] shadow-soft border border-slate-100 active:scale-95 transition-transform opacity-60"
+            >
+                <div className="p-3 bg-slate-50 rounded-2xl">
+                    <Calendar size={24} />
+                </div>
+                <span className="text-[10px] uppercase tracking-widest">Làm lại</span>
+            </button>
+          )}
         </div>
-
-        {!isDone ? (
-          <button 
-            onClick={() => setIsReportModalOpen(true)}
-            className="w-full bg-done text-white font-black py-6 rounded-[2rem] shadow-premium text-xl uppercase tracking-widest active:scale-98 transition-all"
-          >
-            Nghiệm thu / Báo cáo
-          </button>
-        ) : (
-          <button 
-            onClick={() => setReverting(true)}
-            className="w-full bg-slate-100 text-slate-500 font-black py-5 rounded-[2rem] shadow-inner text-sm uppercase tracking-widest active:scale-98 transition-all border border-slate-200 flex items-center justify-center gap-2"
-          >
-            Đánh dấu CHƯA HOÀN THÀNH
-          </button>
-        )}
       </div>
 
-      {/* Production Report Modal */}
       <AnimatePresence>
         {isReportModalOpen && (
           <ReportModal 
@@ -197,52 +208,18 @@ const LocationDetail = () => {
           />
         )}
       </AnimatePresence>
-
-      {/* Revert Confirmation Modal */}
-      {reverting && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm p-4">
-          <motion.div 
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 space-y-6 shadow-premium"
-          >
-            <div className="text-center space-y-2">
-              <div className="w-20 h-20 bg-orange-50 rounded-full mx-auto flex items-center justify-center text-accent mb-4">
-                <Calendar size={40} />
-              </div>
-              <h3 className="text-2xl font-black text-slate-800 leading-tight">Hủy Hoàn Thành?</h3>
-              <p className="text-slate-500 font-medium">Đưa trạng thái của <span className="text-slate-900 font-bold">{item.brand}</span> về lại <span className="text-accent font-bold">Chưa xong</span>?</p>
-            </div>
-
-            <div className="space-y-3">
-              <button 
-                onClick={handleIncomplete}
-                className="w-full bg-accent text-white font-black py-5 rounded-2xl shadow-premium uppercase tracking-widest"
-              >
-                Xác nhận
-              </button>
-              <button 
-                onClick={() => setReverting(false)}
-                className="w-full bg-slate-50 text-slate-400 font-bold py-5 rounded-2xl border border-slate-100 uppercase tracking-widest"
-              >
-                Hủy bỏ
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 };
 
 const DetailRow = ({ icon, label, value }) => (
-  <div className="flex items-start gap-4">
-    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center shrink-0">
+  <div className="flex items-start gap-5">
+    <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
       {icon}
     </div>
-    <div className="min-w-0">
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
-      <p className="text-sm font-bold text-slate-700 leading-snug break-words">{value}</p>
+    <div className="min-w-0 pt-1">
+      <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.15em] mb-1">{label}</p>
+      <p className="text-base font-black text-slate-700 leading-snug break-words tracking-tight">{value}</p>
     </div>
   </div>
 );

@@ -141,6 +141,15 @@ const Profile = () => {
   );
 };
 
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user || user.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+  return children;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -153,7 +162,7 @@ function App() {
             <Route path="list" element={<ListView />} />
             <Route path="detail/:jobCode/:brand" element={<LocationDetail />} />
             <Route path="district" element={<DistrictSummary />} />
-            <Route path="admin-stats" element={<AdminDashboard />} />
+            <Route path="admin-stats" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>

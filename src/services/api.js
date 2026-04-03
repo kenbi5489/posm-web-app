@@ -6,7 +6,7 @@ export const GID_DATA = '620957061';
 export const GID_USERS = '1500350493';
 export const GID_ACCEPTANCE = '511717734';
 
-const getCsvUrl = (gid) => `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}`;
+const getCsvUrl = (gid) => `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}&tq=select%20*`;
 
 export const fetchSheetData = async (gid, fallbackData) => {
   try {
