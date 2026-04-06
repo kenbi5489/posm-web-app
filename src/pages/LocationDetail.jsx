@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft, Link as LinkIcon, MessageCircle } from 'lucide-react';
+import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft, Link as LinkIcon, MessageCircle, TriangleAlert, FileEdit } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import ReportModal from '../components/ReportModal';
@@ -90,15 +90,21 @@ const LocationDetail = () => {
             </div>
           </motion.div>
         ) : (
-          <div className="bg-amber-500 text-white p-7 rounded-[2.5rem] shadow-premium-amber flex items-center gap-6">
-            <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center shadow-inner">
-               <Calendar size={40} className="text-white" />
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-amber-500 text-white p-7 rounded-[2.5rem] shadow-premium-amber flex flex-col gap-4"
+          >
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center shadow-inner">
+                 <Calendar size={40} className="text-white" />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">CHƯA TRIỂN KHAI</p>
+                <p className="text-lg font-black leading-tight">Điểm này chưa được đi/triển khai báo cáo</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">KẾ HOẠCH TRIỂN KHAI</p>
-              <p className="text-xl font-black">Tuần: {item.week || 'W1'}</p>
-            </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Main Details Card (Full Info Request) */}
@@ -111,7 +117,7 @@ const LocationDetail = () => {
         </div>
 
         {/* Acceptance Info (Enhanced for Request) */}
-        {isDone && acceptance && (
+        {isDone && acceptance ? (
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -147,7 +153,14 @@ const LocationDetail = () => {
               </div>
             </div>
           </motion.div>
-        )}
+        ) : !isDone ? (
+            <div className="bg-slate-100/50 border border-dashed border-slate-200 rounded-[2.5rem] p-10 text-center">
+                <TriangleAlert className="mx-auto text-slate-300 mb-4" size={32} />
+                <p className="text-slate-400 text-xs font-bold leading-relaxed uppercase tracking-wider">
+                    Dữ liệu nghiệm thu chưa có.<br/>Vui lòng hoàn thành báo cáo trước.
+                </p>
+            </div>
+        ) : null}
 
         {/* Map Preview */}
         <div className="w-full h-56 bg-slate-200 rounded-[2.5rem] overflow-hidden shadow-inner relative border-4 border-white">

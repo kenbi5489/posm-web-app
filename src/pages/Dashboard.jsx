@@ -60,14 +60,11 @@ const Dashboard = () => {
 
     const total = finalData.length;
     const done = finalData.filter(item => item.status === 'Done').length;
-
-    // Check-in stats
-    const myCheckins = checkins.filter(c => {
-      const picId = (selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null) || '').toString();
-      return !picId || c.pic_id === picId;
-    });
-    const verified = myCheckins.filter(c => c.result === 'verified').length;
-    const review = myCheckins.filter(c => c.result === 'manual_review').length;
+    const verified = finalData.filter(item => item.status === 'Done' && item.verified).length;
+    const review = finalData.filter(item => item.status === 'Done' && !item.verified).length;
+    
+    // Performance score: 75 points = 100%
+    const performanceScore = Math.min(100, Math.round((done / 75) * 100));
 
     return {
       uniqueWeeks: uWeeks,
@@ -76,7 +73,7 @@ const Dashboard = () => {
         total,
         done,
         pending: total - done,
-        percent: Math.min(100, Math.round((done / Math.max(total, 1)) * 100)),
+        percent: performanceScore,
         verified,
         review,
       }
@@ -154,20 +151,23 @@ const Dashboard = () => {
              />
              <motion.circle
                cx="96" cy="96" r="80"
+               strokeLinecap="round"
                stroke="currentColor"
                strokeWidth="12"
-               strokeDasharray={502.6}
-               initial={{ strokeDashoffset: 502.6 }}
-               animate={{ strokeDashoffset: 502.6 - (502.6 * stats.percent) / 100 }}
-               transition={{ duration: 1.5, ease: "easeOut" }}
-               strokeLinecap="round"
                fill="transparent"
+               initial={{ strokeDasharray: "0, 502" }}
+               animate={{ strokeDasharray: `${(stats.percent * 5.02)}, 502` }}
+               transition={{ duration: 1, ease: "easeOut" }}
                className="text-indigo-600"
              />
            </svg>
            <div className="absolute inset-0 flex flex-col items-center justify-center">
-             <span className="text-4xl font-black text-slate-800">{stats.percent}%</span>
-             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Hoàn thành</span>
+             <div className="text-4xl font-black text-slate-800 tracking-tighter">
+               {stats.percent}%
+             </div>
+             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+               Hoàn thành
+             </div>
            </div>
         </div>
         <Link to="/map" className="w-full py-4 bg-indigo-600 text-white text-center font-black rounded-2xl shadow-premium-indigo active:scale-95 transition-all text-sm uppercase tracking-widest">
@@ -178,11 +178,12 @@ const Dashboard = () => {
       {/* Quick Access */}
       <div className="space-y-4">
         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">TRUY CẬP NHANH</h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-4 gap-4">
+          <QuickLink to="/overview" icon={<TrendingUp size={24} />} label="Tổng quan" color="bg-[#0f3460]" />
           <QuickLink to="/map" icon={<MapPin size={24} />} label="Tuyến đường" color="bg-indigo-600" />
           <QuickLink to="/list" icon={<ListChecks size={24} />} label="Danh sách" color="bg-slate-800" />
           {user.role === 'admin' ? (
-            <QuickLink to="/admin-stats" icon={<TrendingUp size={24} />} label="Báo cáo" color="bg-indigo-900" />
+            <QuickLink to="/admin-stats" icon={<LayoutGrid size={24} />} label="Báo cáo" color="bg-indigo-900" />
           ) : (
             <QuickLink to="/district" icon={<LayoutGrid size={24} />} label="Bộ lọc" color="bg-amber-500" />
           )}

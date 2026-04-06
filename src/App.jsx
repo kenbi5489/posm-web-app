@@ -9,6 +9,7 @@ const LocationDetail = React.lazy(() => import('./pages/LocationDetail'));
 const MapView = React.lazy(() => import('./pages/MapView'));
 const DistrictSummary = React.lazy(() => import('./pages/DistrictSummary'));
 const AdminDashboard = React.lazy(() => import('./pages/AdminDashboard'));
+const OverviewDashboard = React.lazy(() => import('./pages/OverviewDashboard'));
 import { usePWA } from './hooks/usePWA';
 import { masterReset } from './services/db';
 
@@ -163,6 +164,7 @@ function App() {
             <Route path="detail/:jobCode/:brand" element={<LocationDetail />} />
             <Route path="district" element={<DistrictSummary />} />
             <Route path="admin-stats" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="overview" element={<OverviewDashboard />} />
             <Route path="profile" element={<Profile />} />
           </Route>
         </Routes>

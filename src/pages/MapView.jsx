@@ -2,59 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle, Navigation, ChevronRight, LayoutGrid, Map as MapIcon, TriangleAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CheckCircle, Navigation, ChevronRight, LayoutGrid, Map as MapIcon, TriangleAlert, Eye, FileEdit } from 'lucide-react';
 
-// ─── Simple Visited Modal ───────────────────────────────────────────────────
-const VisitedModal = ({ item, onClose, onSuccess }) => {
-  const [submitting, setSubmitting] = useState(false);
+import ReportModal from '../components/ReportModal';
 
-  const handleConfirm = async () => {
-    setSubmitting(true);
-    try {
-      const now = new Date().toISOString();
-      const checkinRecord = {
-        job_code: item.job_code,
-        pic_id: String(item.pic_id || '').trim(),
-        checkin_time: now,
-        result: 'visited',
-      };
-      await db.checkins.add(checkinRecord);
-      await db.posmData.update(item.id, { 
-        checkin_status: 'visited', 
-        checkin_time: now,
-        status: 'Done' 
-      });
-      onSuccess();
-    } catch (err) {
-      console.error('Visit record error:', err);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={onClose} />
-      <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative bg-white rounded-[2.5rem] p-8 shadow-2xl max-w-sm w-full border border-slate-100">
-        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle className="text-green-500" size={32} />
-        </div>
-        <h3 className="text-2xl font-black text-slate-800 mb-2 leading-tight">Đã đến điểm?</h3>
-        <p className="text-slate-500 text-sm leading-relaxed mb-8">
-          Hệ thống sẽ ghi nhận bạn đã ghé thăm: <span className="font-bold text-slate-700">{item.brand || 'Cửa hàng này'}</span>
-        </p>
-        <div className="flex flex-col gap-3">
-          <button onClick={handleConfirm} disabled={submitting} className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-premium-indigo active:scale-95 transition-all">
-            {submitting ? 'ĐANG LƯU...' : 'XÁC NHẬN ĐÃ GHÉ'}
-          </button>
-          <button onClick={onClose} className="w-full py-4 bg-slate-50 text-slate-400 font-bold rounded-2xl hover:bg-slate-100 transition-all">
-            QUAY LẠI
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
+// --- Simple VisitedModal removed in favor of direct ReportModal ---
 
 const MapView = () => {
   const { user, selectedStaff } = useAuth();
@@ -201,8 +154,16 @@ const MapView = () => {
                             <p className="text-[10px] font-bold text-slate-400 line-clamp-1 mt-1 uppercase">{item.address}</p>
                           </div>
                           {item.isDone ? (
-                            <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-green-500 shrink-0">
-                               <CheckCircle size={16} />
+                            <div className="flex gap-2 shrink-0">
+                               <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center text-green-500">
+                                  <CheckCircle size={16} />
+                               </div>
+                               <Link 
+                                to={`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`}
+                                className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center active:scale-95 transition-all"
+                               >
+                                 <ChevronRight size={16} />
+                               </Link>
                             </div>
                           ) : (
                             <div className="flex gap-2 shrink-0">
@@ -214,9 +175,9 @@ const MapView = () => {
                               </button>
                               <button 
                                 onClick={() => setEditingItem(item)}
-                                className="w-10 h-10 bg-white text-green-600 border border-green-100 rounded-xl flex items-center justify-center active:scale-95 transition-all hover:bg-green-50"
+                                className="w-10 h-10 bg-white text-indigo-600 border border-indigo-100 rounded-xl flex items-center justify-center shadow-sm active:scale-95 transition-all hover:bg-indigo-50"
                               >
-                                <CheckCircle size={18} />
+                                <FileEdit size={18} />
                               </button>
                             </div>
                           )}
@@ -233,8 +194,10 @@ const MapView = () => {
 
       <AnimatePresence>
         {editingItem && (
-          <VisitedModal 
+          <ReportModal 
+            isOpen={!!editingItem} 
             item={editingItem} 
+            user={user}
             onClose={() => setEditingItem(null)} 
             onSuccess={() => { setEditingItem(null); setDataVersion(v => v + 1); }} 
           />
