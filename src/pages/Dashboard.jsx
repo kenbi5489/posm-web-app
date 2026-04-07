@@ -13,63 +13,72 @@ const Dashboard = () => {
   const [uniqueWeeks, setUniqueWeeks] = useState([]);
   const [uniqueBrands, setUniqueBrands] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [rawItems, setRawItems] = useState([]);
 
-  // PERFORMANCE OPTIMIZED CALCULATION
+  // 1. Fetch RAW data based on user/staff
   useEffect(() => {
-    const calculateStats = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
         const picId = selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null);
-        
-        // 1. Build Query
-        let query = db.posmData;
-        if (picId) {
-          query = db.posmData.where('pic_id').equals(picId.toString());
-        }
+        let query;
 
-        // 2. Fetch unique values for filters (Still relatively safe for 37k if indexed, 
-        // but we'll fetch from local state if it's too much. For now, limit 1000 for brands).
-        const allItems = picId ? await query.toArray() : [];
         if (picId) {
-            setUniqueWeeks([...new Set(allItems.map(i => i.week))].filter(Boolean).sort());
-            setUniqueBrands([...new Set(allItems.map(i => i.brand))].filter(Boolean).sort());
+          query = db.posmData.where('pic_id').equals(picId.toString().trim());
         } else {
-            // For admin, we shouldIdeally use a separate table for unique values if it grows 
-            // but for now we'll fetch a sample or the first 5000.
-            const sample = await db.posmData.limit(5000).toArray();
-            setUniqueWeeks([...new Set(sample.map(i => i.week))].filter(Boolean).sort());
-            setUniqueBrands([...new Set(sample.map(i => i.brand))].filter(Boolean).sort());
+          query = db.posmData; // Admin sees all
         }
 
-        // 3. Database-level Counting (NO toArray() memory overhead)
-        let totalCount, doneCount;
+        const items = await query.toArray();
+        setRawItems(items);
+
+        // Derive unique values for filters
+        const weeks = [...new Set(items.map(i => i.week))].filter(Boolean).sort((a,b) => (parseInt(a.replace(/\D/g,''))||0)-(parseInt(b.replace(/\D/g,''))||0));
+        const brands = [...new Set(items.map(i => i.brand))].filter(Boolean).sort();
         
-        if (picId) {
-           totalCount = await db.posmData.where('pic_id').equals(picId.toString()).count();
-           doneCount = await db.posmData.where('pic_id').equals(picId.toString()).and(i => i.status === 'Done').count();
-        } else {
-           totalCount = await db.posmData.count();
-           doneCount = await db.posmData.where('status').equals('Done').count();
+        setUniqueWeeks(weeks);
+        setUniqueBrands(brands);
+
+        // Set default week to latest if not set
+        if (week === 'All' && weeks.length > 0) {
+           const latest = weeks.slice(-1)[0];
+           setWeek(latest);
         }
-
-        const performanceScore = Math.min(100, Math.round((doneCount / 75) * 100)); // Rule: 75 points = 100%
-
-        setStats({
-          total: totalCount,
-          done: doneCount,
-          pending: totalCount - doneCount,
-          percent: performanceScore
-        });
       } catch (err) {
-        console.error("Dashboard calculation error:", err);
+        console.error("Dashboard data fetch error:", err);
       } finally {
         setLoading(false);
       }
     };
-    calculateStats();
+    fetchData();
   }, [lastSync, selectedStaff, user]);
 
-  if (loading) return (
+  // 2. Calculate Stats based on filters
+  useEffect(() => {
+    let filtered = rawItems;
+    if (week !== 'All') filtered = filtered.filter(i => i.week === week);
+    if (brand !== 'All') filtered = filtered.filter(i => i.brand === brand);
+
+    const total = filtered.length;
+    const done = filtered.filter(i => i.status?.toLowerCase() === 'done').length;
+    const pending = total - done;
+    
+    // Tỉ lệ hoàn thành: 75 points = 100%
+    const completionRate = Math.min(100, Math.round((done / 75) * 100));
+    
+    // Hiệu suất tuyến: % on total assigned
+    const efficiency = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    setStats({
+      total,
+      done,
+      pending,
+      percent: completionRate,
+      efficiency: efficiency
+    });
+  }, [rawItems, week, brand]);
+
+  if (loading && rawItems.length === 0) return (
     <div className="p-12 flex flex-col items-center justify-center gap-4">
         <div className="w-10 h-10 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang tính toán số liệu...</p>
@@ -77,12 +86,38 @@ const Dashboard = () => {
   );
 
   return (
-    <div className="p-6 space-y-8 animate-fade-in">
+    <div className="p-6 space-y-8 animate-fade-in pb-24">
+      {/* Filters */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lọc theo Tuần</label>
+            <select 
+                value={week} 
+                onChange={(e) => setWeek(e.target.value)}
+                className="w-full bg-white border border-slate-100 p-4 rounded-2xl text-xs font-black text-slate-700 outline-none shadow-sm"
+            >
+                <option value="All">Tất cả tuần</option>
+                {uniqueWeeks.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+        </div>
+        <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lọc theo Brand</label>
+            <select 
+                value={brand} 
+                onChange={(e) => setBrand(e.target.value)}
+                className="w-full bg-white border border-slate-100 p-4 rounded-2xl text-xs font-black text-slate-700 outline-none shadow-sm"
+            >
+                <option value="All">Tất cả Brand</option>
+                {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+        </div>
+      </div>
+
       <section className="grid grid-cols-2 gap-4">
         <StatCard icon={<LayoutGrid className="text-indigo-600" size={20} />} label="Tổng số điểm" value={stats.total} color="bg-indigo-50" />
         <StatCard icon={<CheckCircle2 className="text-emerald-600" size={20} />} label="Đã hoàn thành" value={stats.done} color="bg-emerald-50" />
         <StatCard icon={<CircleDashed className="text-amber-600" size={20} />} label="Cần thực hiện" value={stats.pending} color="bg-amber-50" />
-        <StatCard icon={<TrendingUp className="text-blue-600" size={20} />} label="Hiệu suất tuyến" value={`${stats.percent}%`} color="bg-blue-50" />
+        <StatCard icon={<TrendingUp className="text-blue-600" size={20} />} label="Hiệu suất tuyến" value={`${stats.efficiency}%`} color="bg-blue-50" />
       </section>
 
       <div className="bg-white p-8 rounded-[2.5rem] shadow-soft flex flex-col items-center justify-center space-y-4 border border-slate-50 relative overflow-hidden">
@@ -119,6 +154,7 @@ const Dashboard = () => {
         </div>
       </div>
     </div>
+
   );
 };
 

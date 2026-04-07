@@ -19,9 +19,15 @@ export const useSync = (user) => {
         fetchAcceptanceData()
       ]);
       
-      const normalizeStr = (s) => (s || '').toString().normalize('NFC').trim();
+      const normalizeStr = (str) => str ? str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
       const stripAccents = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
       
+      const cleanKey = (str) => {
+        if (!str) return '';
+        // Remove all non-alphanumeric and force upper (QC-123 -> QC123)
+        return str.toString().replace(/[^a-zA-Z0-9]/g, '').toUpperCase().trim();
+      };
+
       // OPTIMIZATION: Index headers once
       const getHeaderMap = (row) => {
         const map = new Map();
@@ -36,11 +42,26 @@ export const useSync = (user) => {
       const headerMapAcc = rawAcceptance.length > 0 ? getHeaderMap(rawAcceptance[0]) : new Map();
       
       const getValFast = (row, patterns, hMap) => {
+        // 1. Exact map matching first (fastest)
         for (const p of patterns) {
             const normP = normalizeStr(p).toLowerCase();
             const stripP = stripAccents(p);
             const key = hMap.get(normP) || hMap.get(stripP);
-            if (key !== undefined) return row[key] ?? '';
+            if (key !== undefined) {
+               const val = (row[key] ?? '').toString().trim();
+               if (val !== '') return val;
+            }
+        }
+        // 2. Substring matching for long Google Form Headers
+        for (const p of patterns) {
+            const stripP = stripAccents(p);
+            if (stripP.length < 4) continue; // Skip very short vague words
+            for (const [hKey, originalKey] of hMap.entries()) {
+               if (hKey.includes(stripP)) {
+                  const val = (row[originalKey] ?? '').toString().trim();
+                  if (val !== '') return val;
+               }
+            }
         }
         return '';
       };
@@ -55,14 +76,15 @@ export const useSync = (user) => {
 
       // Step 2: Initialize assignments
       data.forEach(row => {
-        const jobCode = getValFast(row, ['Mã cv', 'job_code', 'Ma cv', 'jobCode'], headerMapData)?.toString().trim();
-        if (!jobCode || jobCode.length < 2) return;
+        const jobCodeRaw = getValFast(row, ['Mã cv', 'job_code', 'Ma cv', 'jobCode', 'Mã CV'], headerMapData)?.toString().trim();
+        if (!jobCodeRaw || jobCodeRaw.length < 2) return;
+        const jobCode = cleanKey(jobCodeRaw);
 
-        const rawWeek = (getValFast(row, ['Week triển khai', 'Week', 'Tuần', 'WEEKnum'], headerMapData) || '').toString().trim();
+        const rawWeek = (getValFast(row, ['Week triển khai', 'Week', 'Tuần', 'WEEKnum', 'WEEK_num'], headerMapData) || '').toString().trim();
         const weekNum = rawWeek.replace(/[^0-9]/g, '');
         const week = rawWeek.toUpperCase().startsWith('W') ? rawWeek.toUpperCase() : (weekNum ? `W${weekNum}` : 'W??');
         const compositeKey = `${jobCode}_${week}`;
-        
+
         const parseCoord = (s) => {
           if (!s) return null;
           const val = parseFloat(s.toString().replace(',', '.'));
@@ -71,24 +93,24 @@ export const useSync = (user) => {
 
         const item = {
           week: week,
-          date_assigned: getValFast(row, ['Ngày chia'], headerMapData),
-          brand: getValFast(row, ['Brand'], headerMapData),
+          date_assigned: getValFast(row, ['Ngày chia', 'Ngày', 'Date'], headerMapData),
+          brand: getValFast(row, ['Brand', 'Nhãn hàng'], headerMapData),
           job_code: jobCode,
-          address: getValFast(row, ['Địa chỉ', 'Dia chi'], headerMapData),
-          ward: getValFast(row, ['Phường', 'Phuong'], headerMapData),
-          district: getValFast(row, ['Quận', 'Quan', 'District'], headerMapData),
-          city: getValFast(row, ['Thành Phố', 'Thanh Pho', 'City'], headerMapData),
-          pic: getValFast(row, ['PIC'], headerMapData),
+          address: getValFast(row, ['Địa chỉ', 'Dia chi', 'Address'], headerMapData),
+          ward: getValFast(row, ['Phường', 'Phuong', 'Ward'], headerMapData),
+          district: getValFast(row, ['Quận', 'Quan', 'District', 'Huyện'], headerMapData),
+          city: getValFast(row, ['Thành Phố', 'Thanh Pho', 'City', 'Tỉnh'], headerMapData),
+          pic: getValFast(row, ['PIC', 'Nhân viên', 'Người thực hiện'], headerMapData),
           status: 'On-going',
           completion_date: '',
-          portal_id: getValFast(row, ['Tài khoản Portal'], headerMapData),
-          posm_status_master: getValFast(row, ['POSM_Status'], headerMapData),
+          portal_id: getValFast(row, ['Tài khoản Portal', 'Portal'], headerMapData),
+          posm_status_master: getValFast(row, ['POSM_Status', 'Tình trạng'], headerMapData),
           lat: parseCoord(getValFast(row, ['latitude', 'lat', 'vĩ độ'], headerMapData)),
           lng: parseCoord(getValFast(row, ['longitude', 'lng', 'kinh độ'], headerMapData)),
-          pic_id: (getValFast(row, ['pic_id'], headerMapData) || '').toString().trim(),
-          mall_name: getValFast(row, ['Mall_Name', 'Mall'], headerMapData) || 'N/A',
-          location_type: getValFast(row, ['Location_Type', 'Type'], headerMapData) || 'N/A',
-          frame: getValFast(row, ['Frame'], headerMapData) || 'N/A'
+          pic_id: (getValFast(row, ['pic_id', 'Mã nhân viên', 'Staff ID', 'Emp ID', 'Ma NV'], headerMapData) || '').toString().trim(),
+          mall_name: getValFast(row, ['Mall_Name', 'Mall', 'Trung tâm'], headerMapData) || 'N/A',
+          location_type: getValFast(row, ['Location_Type', 'Type', 'Loại'], headerMapData) || 'N/A',
+          frame: getValFast(row, ['Frame', 'Khung'], headerMapData) || 'N/A'
         };
 
         assignmentsMap.set(compositeKey, item);
@@ -97,10 +119,18 @@ export const useSync = (user) => {
       });
 
       // Step 3: Fast Overlay reports
+      let matchCount = 0;
+      const reportSummary = [];
+      const unmatchedCodes = [];
+      
       rawAcceptance.forEach(row => {
-        const jobCode = (getValFast(row, ['Mã cv', 'job_code', 'jobCode', 'Mã CV'], headerMapAcc) || '').toString().trim().toUpperCase();
-        const picName = (getValFast(row, ['Tên nhân viên', 'Nhân viên'], headerMapAcc) || '').toString().trim();
-        const weekVal = getValFast(row, ['Week', 'Tuần', 'WEEKnum'], headerMapAcc) || '';
+        // Added 'Cú pháp check In' to catch the specific Google Form question format
+        const jobCodeRaw = (getValFast(row, ['Cú pháp check In', 'Mã CH', 'Mã cv', 'job_code', 'jobCode', 'Mã CV'], headerMapAcc) || '').toString().trim();
+        const jobCode = cleanKey(jobCodeRaw);
+        
+        // Added 'Họ tên nhân sự nghiệm thu' for correct PIC matching
+        const picName = (getValFast(row, ['Họ tên nhân sự', 'Tên nhân viên', 'Nhân viên', 'Người báo cáo'], headerMapAcc) || '').toString().trim();
+        const weekVal = getValFast(row, ['Week', 'Tuần', 'WEEKnum', 'Tuần triển khai'], headerMapAcc) || '';
         const weekNum = parseInt(weekVal.toString().replace(/\D/g, '')) || 0;
         const weekRaw = weekVal.toString().toUpperCase().startsWith('W') ? weekVal.toString().toUpperCase() : (weekNum ? `W${weekNum}` : '');
         
@@ -108,43 +138,68 @@ export const useSync = (user) => {
         let targetKey = null;
         const exactKey = `${jobCode}_${weekRaw}`;
         
+        // Match Strategy 1: Exact Key (JobCode + Week)
         if (jobCode && weekRaw && assignmentsMap.has(exactKey)) {
           targetKey = exactKey;
-        } else if (jobCode && jobCodeToIndex.has(jobCode)) {
-          const possibilities = jobCodeToIndex.get(jobCode);
-          targetKey = possibilities.find(k => {
-            const item = assignmentsMap.get(k);
-            const aPic = stripAccents(item.pic);
-            const rPic = stripAccents(picName);
-            return !rPic || aPic === rPic || aPic.includes(rPic) || rPic.includes(aPic);
-          }) || possibilities[0];
+        } 
+        // Match Strategy 2: Fallback to inclusive search across PIC's jobs
+        else if (jobCode) {
+           const possibleKeys = Array.from(assignmentsMap.keys());
+           targetKey = possibleKeys.find(k => {
+              const item = assignmentsMap.get(k);
+              // Must be the same PIC if we have multiple PICs
+              if (picId && item.pic_id && item.pic_id !== picId) return false;
+              
+              const baseMissionCode = cleanKey(item.job_code);
+              // Inclusive Match: Does the reported code contain the assigned code? 
+              // (e.g. GS25824XADAN contains GS25824)
+              if (baseMissionCode.length > 3 && jobCode.includes(baseMissionCode)) {
+                return true;
+              }
+              return false;
+           });
         }
 
         if (targetKey) {
           const existing = assignmentsMap.get(targetKey);
-          const reportPosmStatus = getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc);
+          const reportPosmStatus = getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM', 'Tình trạng'], headerMapAcc);
+          
           assignmentsMap.set(targetKey, {
             ...existing,
             status: 'Done',
             pic: existing.pic || picName,
             pic_id: existing.pic_id || picId,
-            week: existing.week || weekRaw, 
-            completion_date: getValFast(row, ['Timestamp'], headerMapAcc) || '',
+            completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
             posm_status: reportPosmStatus || existing.posm_status_master || '',
             reported_by: picName
           });
+          matchCount++;
+          reportSummary.push({ jobCode, matched: targetKey, picName });
+        } else if (jobCode) {
+          unmatchedCodes.push(jobCodeRaw);
         }
       });
 
+      // Save mismatches for UI Diagnostic panel
+      localStorage.setItem('sync_mismatches', JSON.stringify([...new Set(unmatchedCodes)].slice(0, 10)));
+
+      console.group('POSM Sync Overlay Result');
+      console.log(`Successfully matched ${matchCount}/${rawAcceptance.length} reports to missions.`);
+      if (reportSummary.length > 0) console.table(reportSummary.slice(0, 20));
+      console.groupEnd();
+
       const transformed = Array.from(assignmentsMap.values());
       const transformedAcceptance = rawAcceptance
-        .map(row => ({
-          job_code: getValFast(row, ['Mã cv', 'job_code', 'jobCode'], headerMapAcc),
-          image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Ảnh nghiệm thu'], headerMapAcc) || '',
-          image2: getValFast(row, ['Link 2', 'Ảnh 2'], headerMapAcc) || '',
-          posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
-          note: getValFast(row, ['Ghi chú'], headerMapAcc) || ''
-        }))
+        .map(row => {
+          const rawJob = getValFast(row, ['Cú pháp check In', 'Mã CH', 'Mã cv', 'job_code', 'jobCode'], headerMapAcc) || '';
+          return {
+            job_code: cleanKey(rawJob),
+            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Ảnh nghiệm thu'], headerMapAcc) || '',
+            image2: getValFast(row, ['Link 2', 'Ảnh 2'], headerMapAcc) || '',
+            posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
+            note: getValFast(row, ['Ghi chú'], headerMapAcc) || ''
+          };
+        })
         .filter(item => item.job_code && item.job_code.length > 0);
 
       await db.transaction('rw', [db.posmData, db.acceptanceData], async () => {

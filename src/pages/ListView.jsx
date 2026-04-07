@@ -29,26 +29,21 @@ const ListView = () => {
       setIsLoading(true);
       try {
         const picId = selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null);
+        let posm;
         
-        let posmQuery = db.posmData.where('status').equals('Done');
+        // Fetch all relevant data for the current user/staff
         if (picId) {
-          // If staff, we can narrow down by pic_id too. 
-          // Note: status index is used, then we filter in JS or via .and() 
-          // because Dexie doesn't easily support multi-index where natively 
-          // without a composite index. But where/and on 'Done' is fast.
-          posmQuery = db.posmData.where('pic_id').equals(picId.toString()).and(i => i.status === 'Done');
+          posm = await db.posmData.where('pic_id').equals(picId.toString().trim()).toArray();
+        } else {
+          posm = await db.posmData.toArray();
         }
 
-        // Limit the heavy data load to only what's needed for the current view
-        const [posm, acc] = await Promise.all([
-          posmQuery.toArray(),
-          db.acceptanceData.toArray()
-        ]);
-        
+        const acc = await db.acceptanceData.toArray();
         const accMap = new Map();
         acc.forEach(a => accMap.set(a.job_code, a));
+        
         setAcceptanceMap(accMap);
-        setAllItems(posm);
+        setAllItems(posm); // Store ALL items so we can derive all weeks/brands
       } catch (err) { 
         console.error('ListView Load Error:', err); 
       } finally {
@@ -59,9 +54,16 @@ const ListView = () => {
   }, [selectedStaff, user]);
 
   const { filteredItems, uniqueWeeks, uniqueBrands } = useMemo(() => {
-    let filtered = allItems;
+    // 1. Derive globals from ALL items
+    const brands = ['All', ...new Set(allItems.map(i => i.brand).filter(Boolean))].sort();
+    const weeksList = [...new Set(allItems.map(i => i.week))].filter(Boolean).sort((a,b) => (parseInt(a.replace(/\D/g,''))||0)-(parseInt(b.replace(/\D/g,''))||0));
+
+    // 2. Filter for DONE + Filters
+    let filtered = allItems.filter(i => i.status?.toLowerCase() === 'done');
+    
     if (week !== 'All') filtered = filtered.filter(i => i.week === week);
     if (selectedBrand !== 'All') filtered = filtered.filter(i => i.brand === selectedBrand);
+    
     if (search) {
       const s = search.toLowerCase();
       filtered = filtered.filter(i => 
@@ -70,8 +72,7 @@ const ListView = () => {
         i.address?.toLowerCase().includes(s)
       );
     }
-    const brands = ['All', ...new Set(allItems.map(i => i.brand).filter(Boolean))].sort();
-    const weeksList = [...new Set(allItems.map(i => i.week))].filter(Boolean).sort();
+    
     return { filteredItems: filtered, uniqueWeeks: weeksList, uniqueBrands: brands };
   }, [allItems, week, search, selectedBrand]);
 
@@ -173,8 +174,9 @@ const ListItem = ({ item, report, showImages }) => {
             <h4 className="text-lg font-black text-slate-800 tracking-tight uppercase mb-2">{item.brand || 'POSM Point'}</h4>
             <div className="flex items-center gap-2 mb-4"><MapPin size={12} className="text-slate-300"/><p className="text-xs font-bold text-slate-400 line-clamp-1">{item.address}</p></div>
            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[9px] font-black bg-indigo-600 text-white px-3 py-1.5 rounded-xl border border-indigo-700 uppercase tracking-widest">Đã báo cáo</span>
               <span className="text-[9px] font-black bg-slate-50 text-slate-400 px-3 py-1.5 rounded-xl border border-slate-100 uppercase tracking-widest"><Hash size={10} className="inline mr-1" />{item.job_code}</span>
-              <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase ${hasPosm ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{hasPosm ? 'Có POSM' : 'K. POSM'}</span>
+              <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase ${hasPosm ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{hasPosm ? 'Có POSM' : 'KHÔNG POSM'}</span>
               {isMall && <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-100 uppercase tracking-widest">MALL</span>}
            </div>
         </div>
