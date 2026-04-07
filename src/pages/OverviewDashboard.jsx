@@ -3,39 +3,57 @@ import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import {
-  LayoutGrid, CheckCircle2, CircleDashed, TrendingUp,
-  AlertTriangle, ChevronDown, Clock, RefreshCw
+  AlertTriangle, ChevronDown, Clock, RefreshCw, Trophy, Users, ShieldAlert, BadgeInfo
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TỔNG QUAN POSM — Executive Overview Dashboard
-// Data source: posmData (same as main Dashboard)
-// KPI logic: status === 'Done' vs 'On-going' (consistent with main Dashboard)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const ACCENT = '#0f3460';
-const ACCENT_LIGHT = '#e8eef6';
 const TEAL = '#0d9488';
-const TEAL_LIGHT = '#ccfbf1';
 const AMBER = '#d97706';
-const AMBER_LIGHT = '#fef3c7';
 const RED = '#dc2626';
-const RED_LIGHT = '#fee2e2';
-const SLATE_50 = '#f8fafc';
 
-// ─── Symbols for readability
 const isMall = (rec) => {
   if (rec.mall_name && rec.mall_name !== 'N/A' && rec.mall_name !== '') return true;
   const type = (rec.location_type || '').toLowerCase();
   return type.includes('mall') || type.includes('ttm') || type.includes('trung tâm');
 };
 
+// ─── UI COMPONENTS ───────────────────────────────────────────────────────────
 
-// ─── Lightweight SVG Bar Chart ──────────────────────────────────────────────
-const BarChart = ({ data, height = 200 }) => {
+const DoughnutChart = ({ percent, total, done, color = ACCENT }) => {
+  const radius = 60;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percent / 100) * circumference;
+  
+  return (
+    <div className="relative w-40 h-40 flex items-center justify-center mx-auto">
+      <svg className="w-full h-full transform -rotate-90 drop-shadow-sm">
+        <circle cx="80" cy="80" r={radius} fill="none" stroke="#f1f5f9" strokeWidth="12" />
+        <motion.circle 
+          cx="80" cy="80" r={radius} fill="none" stroke={color} strokeWidth="12" 
+          strokeDasharray={circumference} 
+          initial={{ strokeDashoffset: circumference }}
+          animate={{ strokeDashoffset }}
+          transition={{ duration: 1.5, ease: 'easeOut' }}
+          strokeLinecap="round" 
+        />
+      </svg>
+      <div className="absolute flex flex-col items-center justify-center text-center">
+        <span className="text-3xl font-black text-slate-800 tracking-tighter" style={{ color }}>{percent}%</span>
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{done} / {total}</span>
+      </div>
+    </div>
+  );
+};
+
+const BarChart = ({ data, height = 150 }) => {
   if (!data || data.length === 0) return null;
   const max = Math.max(...data.map(d => d.total), 1);
-  const barW = Math.min(40, Math.floor(280 / data.length) - 8);
+  const barW = Math.min(30, Math.floor(250 / data.length) - 8);
 
   return (
     <svg viewBox={`0 0 ${data.length * (barW + 12) + 20} ${height + 40}`} className="w-full" style={{ maxHeight: height + 40 }}>
@@ -45,8 +63,13 @@ const BarChart = ({ data, height = 200 }) => {
         const doneH = (d.done / max) * height;
         return (
           <g key={i}>
-            <rect x={x} y={height - totalH} width={barW} height={totalH} rx={barW / 4} fill={ACCENT_LIGHT} />
-            <rect x={x} y={height - doneH} width={barW} height={doneH} rx={barW / 4} fill={ACCENT} opacity={0.85} />
+            <rect x={x} y={height - totalH} width={barW} height={totalH} rx={barW / 4} fill="#e2e8f0" />
+            <motion.rect 
+              initial={{ height: 0, y: height }}
+              animate={{ height: doneH, y: height - doneH }}
+              transition={{ duration: 1, delay: i * 0.1 }}
+              x={x} width={barW} height={doneH} y={height - doneH} rx={barW / 4} fill={ACCENT} opacity={0.85} 
+             />
             <text x={x + barW / 2} y={height + 18} textAnchor="middle" fontSize="10" fontWeight="700" fill="#94a3b8">
               {d.label}
             </text>
@@ -57,149 +80,68 @@ const BarChart = ({ data, height = 200 }) => {
   );
 };
 
-// ─── Horizontal Progress Bar ────────────────────────────────────────────────
 const ProgressBar = ({ percent, color = ACCENT }) => (
-  <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex-1">
+  <div className="h-2 bg-slate-100 rounded-full overflow-hidden flex-1 shadow-inner">
     <motion.div
-      initial={{ width: 0 }}
-      animate={{ width: `${percent}%` }}
-      transition={{ duration: 0.8, ease: 'easeOut' }}
-      className="h-full rounded-full"
-      style={{ backgroundColor: color }}
+      initial={{ width: 0 }} animate={{ width: `${percent}%` }} transition={{ duration: 0.8, ease: 'easeOut' }}
+      className="h-full rounded-full" style={{ backgroundColor: color }}
     />
   </div>
 );
 
-// ─── KPI Card ───────────────────────────────────────────────────────────────
-const KPICard = ({ icon, label, value, sub, accent = false }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 12 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.4 }}
-    className={`rounded-2xl p-6 border transition-all ${
-      accent
-        ? 'bg-[#0f3460] text-white border-[#0f3460] shadow-lg'
-        : 'bg-white border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]'
-    }`}
-  >
-    <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-4 ${accent ? 'bg-white/15' : 'bg-slate-50'}`}>
-      {icon}
-    </div>
-    <p className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${accent ? 'text-white/60' : 'text-slate-400'}`}>
-      {label}
-    </p>
-    <p className={`text-3xl font-extrabold tracking-tight leading-none ${accent ? 'text-white' : 'text-slate-800'}`}>
-      {value}
-    </p>
-    {sub && (
-      <p className={`text-[11px] font-medium mt-2 ${accent ? 'text-white/50' : 'text-slate-400'}`}>
-        {sub}
-      </p>
-    )}
-  </motion.div>
-);
-
-// ─── Alert Item ─────────────────────────────────────────────────────────────
 const AlertItem = ({ severity, text }) => {
-  const colors = {
-    high: { bg: RED_LIGHT, text: RED, badge: 'Quan trọng' },
-    medium: { bg: AMBER_LIGHT, text: AMBER, badge: 'Chú ý' },
-    low: { bg: TEAL_LIGHT, text: TEAL, badge: 'Thông tin' },
+  const config = {
+    high: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', icon: <ShieldAlert size={14} className="text-rose-600 mt-0.5" /> },
+    medium: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: <AlertTriangle size={14} className="text-amber-600 mt-0.5" /> },
+    low: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', icon: <BadgeInfo size={14} className="text-blue-600 mt-0.5" /> },
   };
-  const c = colors[severity] || colors.low;
+  const c = config[severity] || config.low;
   return (
-    <div className="flex items-start gap-3 py-3.5 border-b border-slate-50 last:border-b-0">
-      <span
-        className="text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shrink-0 mt-0.5"
-        style={{ backgroundColor: c.bg, color: c.text }}
-      >
-        {c.badge}
-      </span>
-      <p className="text-[13px] text-slate-600 font-medium leading-snug">{text}</p>
-    </div>
+    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+      className={`flex items-start gap-3 p-3.5 mb-2 rounded-xl border ${c.bg} ${c.border}`}
+    >
+      {c.icon}
+      <p className={`text-[13px] font-semibold leading-snug ${c.text}`}>{text}</p>
+    </motion.div>
   );
 };
 
-// ─── Breakdown Row ──────────────────────────────────────────────────────────
-const BreakdownRow = ({ rank, name, value, total, percent, color }) => {
+const LeaderboardRow = ({ rank, name, value, total, percent, color }) => {
   const barColor = color || (percent < 40 ? RED : percent < 70 ? AMBER : TEAL);
   return (
-    <div className="flex items-center gap-4 py-3.5 border-b border-slate-50 last:border-b-0">
-      <span className="text-[11px] font-bold text-slate-300 w-5 text-right">{rank}</span>
+    <div className="flex items-center gap-3 py-3 border-b border-slate-50 last:border-b-0">
+      <div className={`w-6 h-6 rounded flex items-center justify-center text-[10px] font-black shrink-0 ${rank === 1 ? 'bg-amber-100 text-amber-600' : rank === 2 ? 'bg-slate-100 text-slate-500' : 'bg-orange-50 text-orange-600'}`}>
+        #{rank}
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-sm font-semibold text-slate-700 truncate">{name}</span>
-          <span className="text-xs font-bold text-slate-400 shrink-0 ml-2">{value}/{total}</span>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-bold text-slate-700 truncate">{name}</span>
+          <span className="text-[10px] font-black text-slate-400 shrink-0 ml-2">{value}/{total}</span>
         </div>
         <div className="flex items-center gap-3">
           <ProgressBar percent={percent} color={barColor} />
-          <span className="text-xs font-bold w-10 text-right" style={{ color: barColor }}>{percent}%</span>
+          <span className="text-[10px] font-black w-8 text-right" style={{ color: barColor }}>{percent}%</span>
         </div>
       </div>
     </div>
   );
 };
 
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Main Component — uses SAME data source & logic as Dashboard.jsx
 // ═══════════════════════════════════════════════════════════════════════════
 
 const OverviewDashboard = () => {
   const { user, selectedStaff, lastSync } = useAuth();
   const [allData, setAllData] = useState([]);
-  const [acceptance, setAcceptance] = useState([]);
   const [loading, setLoading] = useState(true);
   const [weekFilter, setWeekFilter] = useState('All');
   const [brandFilter, setBrandFilter] = useState('All');
 
-
-  // ── Load from posmData (Selective Fetching) ─────────────────────
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
-        const picId = selectedStaff?.user_id || (user?.role === 'staff' ? user.user_id : null);
-        
-        // 1. Fetch Counts (Extremely Fast)
-        let totalCount, doneCount;
-        if (picId) {
-          totalCount = await db.posmData.where('pic_id').equals(picId.toString()).count();
-          doneCount = await db.posmData.where('pic_id').equals(picId.toString()).and(i => i.status === 'Done').count();
-        } else {
-          totalCount = await db.posmData.count();
-          doneCount = await db.posmData.where('status').equals('Done').count();
-        }
-
-        // 2. Selective Fetching for Charts (Fetch ONLY needed columns)
-        // Dexie doesn't have a direct "select columns" for toArray, 
-        // so we'll fetch everything but we'll try to limit it or process it fast.
-        // Actually, to keep it simple and correct for charts, we fetch all 
-        // but only if picId is null (Admin).
-        let posmPromise;
-        if (picId) {
-          posmPromise = db.posmData.where('pic_id').equals(picId.toString()).toArray();
-        } else {
-          // If total data is 37k, we still need to calculate breakdown.
-          // We'll fetch it once. The previous delay was likely due to REDUNDANT loads.
-          posmPromise = db.posmData.toArray(); 
-        }
-
-        const [posm, acc] = await Promise.all([
-          posmPromise,
-          db.acceptanceData.toArray()
-        ]);
-
-        setAllData(posm);
-        setAcceptance(acc);
-        // Pre-set some stats to avoid wait
-        setSummaryStats({
-           total: totalCount,
-           done: doneCount,
-           pending: totalCount - doneCount,
-           percent: Math.min(100, Math.round((doneCount / 75) * 100))
-        });
+        const data = await db.posmData.toArray();
+        setAllData(data);
       } catch (err) {
         console.error("Overview Load Error:", err);
       } finally {
@@ -207,35 +149,16 @@ const OverviewDashboard = () => {
       }
     };
     load();
-  }, [lastSync, selectedStaff, user]);
+  }, [lastSync]);
 
-  const [summaryStats, setSummaryStats] = useState({ total: 0, done: 0, pending: 0, percent: 0 });
-
-
-  // ── Filter by selected staff (same logic as Dashboard.jsx) ────────────────
   const { filtered, uniqueWeeks, uniqueBrands } = useMemo(() => {
     const picId = selectedStaff?.user_id || (user?.role === 'staff' ? user.user_id : null);
-    const staffName = selectedStaff?.ho_ten || (user?.role === 'staff' ? user.ho_ten : null);
-
     let base = allData;
-    if (picId || staffName) {
-      const matchId = picId ? picId.toString().trim() : null;
-      const normalizedStaffName = staffName ? staffName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : null;
-
-      base = allData.filter(item => {
-        const itemPicId = (item.pic_id || '').toString().trim();
-        const matchById = matchId && itemPicId && (itemPicId === matchId);
-
-        const itemPic = item.pic ? item.pic.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() : '';
-        const matchByName = normalizedStaffName && itemPic && (itemPic === normalizedStaffName || itemPic.includes(normalizedStaffName) || normalizedStaffName.includes(itemPic));
-
-        return matchById || matchByName;
-      });
+    if (picId) {
+      base = allData.filter(item => item.pic_id === picId);
     }
 
-    const uWeeks = [...new Set(base.map(i => i.week))].filter(Boolean).sort((a, b) => {
-      return (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0);
-    });
+    const uWeeks = [...new Set(base.map(i => i.week))].filter(Boolean).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
     const uBrands = [...new Set(base.map(i => i.brand))].filter(Boolean).sort();
 
     let f = base;
@@ -245,362 +168,135 @@ const OverviewDashboard = () => {
     return { filtered: f, uniqueWeeks: uWeeks, uniqueBrands: uBrands };
   }, [allData, user, selectedStaff, weekFilter, brandFilter]);
 
-  // ── KPIs (same formula as Dashboard.jsx) ──────────────────────────────────
+  // Master KPI
   const kpis = useMemo(() => {
     const total = filtered.length;
     const done = filtered.filter(i => i.status === 'Done').length;
-    const pending = total - done;
-    const percent = Math.min(100, Math.round((done / Math.max(total, 1)) * 100));
+    
+    // As per new rules: total assignment should be 75 per week for staff, or fallback to real total
+    const quota = user?.role === 'staff' ? 75 : Math.max(total, 1);
+    const percent = Math.min(100, Math.round((done / quota) * 100));
 
-    // Mall vs Non-mall Analysis
     const mallRecs = filtered.filter(isMall);
     const nonMallRecs = filtered.filter(r => !isMall(r));
-    
-    const mallDone = mallRecs.filter(r => r.status === 'Done').length;
-    const nonMallDone = nonMallRecs.filter(r => r.status === 'Done').length;
-
     return { 
-      total, done, pending, percent,
-      mall: { total: mallRecs.length, done: mallDone, percent: Math.round((mallDone / Math.max(mallRecs.length, 1)) * 100) },
-      nonMall: { total: nonMallRecs.length, done: nonMallDone, percent: Math.round((nonMallDone / Math.max(nonMallRecs.length, 1)) * 100) }
+      total, done, percent,
+      mall: { total: mallRecs.length, done: mallRecs.filter(r => r.status === 'Done').length },
+      nonMall: { total: nonMallRecs.length, done: nonMallRecs.filter(r => r.status === 'Done').length }
     };
-  }, [filtered]);
+  }, [filtered, user?.role]);
 
-
-  // ── Chart Data (by week) ──────────────────────────────────────────────────
+  // Insights
   const chartData = useMemo(() => {
-    const weekMap = {};
+    const map = {};
     filtered.forEach(item => {
       const w = item.week || 'N/A';
-      if (!weekMap[w]) weekMap[w] = { total: 0, done: 0 };
-      weekMap[w].total++;
-      if (item.status === 'Done') weekMap[w].done++;
+      if (!map[w]) map[w] = { total: 0, done: 0 };
+      map[w].total++;
+      if (item.status === 'Done') map[w].done++;
     });
-
-    return Object.entries(weekMap)
+    return Object.entries(map)
       .sort(([a], [b]) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0))
       .map(([label, d]) => ({ label: label.replace(/\D/g, '') ? `W${label.replace(/\D/g, '')}` : label, ...d }));
   }, [filtered]);
 
-  // ── Smart Alerts ──────────────────────────────────────────────────────────
-  const alerts = useMemo(() => {
-    const result = [];
-
-    // Brand with lowest completion
-    const brandMap = {};
-    filtered.forEach(item => {
-      const b = item.brand || 'Unknown';
-      if (!brandMap[b]) brandMap[b] = { total: 0, done: 0 };
-      brandMap[b].total++;
-      if (item.status === 'Done') brandMap[b].done++;
-    });
-
-    const lowBrands = Object.entries(brandMap)
-      .filter(([, d]) => d.total >= 3 && (d.done / d.total) < 0.4)
-      .sort((a, b) => (a[1].done / a[1].total) - (b[1].done / b[1].total));
-
-    if (lowBrands.length > 0) {
-      const [name, d] = lowBrands[0];
-      result.push({
-        severity: 'high',
-        text: `${name} có tỷ lệ hoàn thành thấp nhất: ${Math.round((d.done / d.total) * 100)}% (${d.done}/${d.total})`
-      });
-    }
-
-    // District bottlenecks
-    const districtMap = {};
-    filtered.forEach(item => {
-      const d = item.district || 'Khác';
-      if (!districtMap[d]) districtMap[d] = { total: 0, pending: 0 };
-      districtMap[d].total++;
-      if (item.status !== 'Done') districtMap[d].pending++;
-    });
-
-    const hotDistricts = Object.entries(districtMap)
-      .filter(([, d]) => d.pending >= 3)
-      .sort((a, b) => b[1].pending - a[1].pending);
-
-    if (hotDistricts.length > 0) {
-      const [name, d] = hotDistricts[0];
-      result.push({
-        severity: 'medium',
-        text: `${name} còn ${d.pending} điểm chưa triển khai (${d.total} tổng)`
-      });
-    }
-
-    // Overall rate
-    if (kpis.percent < 50 && kpis.total > 5) {
-      result.push({
-        severity: 'high',
-        text: `Tỷ lệ hoàn thành tổng thể chỉ đạt ${kpis.percent}% — cần đẩy mạnh triển khai`
-      });
-    } else if (kpis.percent >= 80) {
-      result.push({
-        severity: 'low',
-        text: `Tỷ lệ hoàn thành đạt ${kpis.percent}% — tiến độ rất tốt`
-      });
-    }
-
-    if (kpis.pending > 0 && kpis.pending <= 5) {
-      result.push({
-        severity: 'low',
-        text: `Chỉ còn ${kpis.pending} điểm chưa hoàn thành — sắp đạt mục tiêu`
-      });
-    }
-
-    return result.slice(0, 5);
-  }, [filtered, kpis]);
-
-  // ── Breakdown: Top 5 Districts (High performance)
-  const topDistricts = useMemo(() => {
-    const map = {};
-    filtered.forEach(item => {
-      const d = item.district || 'Khác';
-      if (!map[d]) map[d] = { total: 0, done: 0 };
-      map[d].total++;
-      if (item.status === 'Done') map[d].done++;
-    });
-
-    return Object.entries(map)
-      .map(([name, d]) => ({
-        name,
-        done: d.done,
-        total: d.total,
-        percent: Math.round((d.done / d.total) * 100)
-      }))
-      .filter(d => d.total >= 1)
-      .sort((a, b) => b.percent - a.percent)
-      .slice(0, 5);
+  const brandMetrics = useMemo(() => {
+     const map = {};
+     filtered.forEach(item => {
+       const b = item.brand || 'Khác';
+       if (!map[b]) map[b] = { total: 0, done: 0 };
+       map[b].total++;
+       if (item.status === 'Done') map[b].done++;
+     });
+     const sorted = Object.entries(map).map(([name, d]) => ({ name, done: d.done, total: d.total, percent: Math.round((d.done / Math.max(d.total, 1)) * 100) }))
+       .filter(d => d.total >= 5).sort((a, b) => b.percent - a.percent);
+     return { top: sorted.slice(0, 3), bottom: sorted.slice(-3).reverse() };
   }, [filtered]);
 
+  const alerts = useMemo(() => {
+    const res = [];
+    if (brandMetrics.bottom.length > 0) {
+      res.push({ severity: 'high', text: `Báo động đỏ: Brand ${brandMetrics.bottom[0].name} chỉ đạt ${brandMetrics.bottom[0].percent}%. Cần ưu tiên xử lý ngay.` });
+    }
+    const pendingDistricts = {};
+    filtered.forEach(i => { if (i.status !== 'Done') { pendingDistricts[i.district || 'Khác'] = (pendingDistricts[i.district || 'Khác'] || 0) + 1; }});
+    const hotD = Object.entries(pendingDistricts).sort((a,b) => b[1]-a[1]);
+    if (hotD.length > 0 && hotD[0][1] >= 5) {
+      res.push({ severity: 'medium', text: `${hotD[0][0]} đang kẹt lại ${hotD[0][1]} điểm thi công.` });
+    }
+    if (kpis.percent < 70 && kpis.total > 10) res.push({ severity: 'medium', text: `Tổng tiến độ chiến dịch (${kpis.percent}%) đang có dấu hiệu chững lại.` });
+    if (res.length === 0) res.push({ severity: 'low', text: `Hệ thống ổn định. Không có rủi ro nào được phát hiện.` });
+    return res;
+  }, [brandMetrics, filtered, kpis]);
 
+  if (loading) return <div className="flex justify-center py-32"><RefreshCw className="animate-spin text-slate-300" size={28} /></div>;
 
-// Breakdown section removed to be replaced by Gallery
-
-
-  // ── Sync label ────────────────────────────────────────────────────────────
-  const syncLabel = lastSync
-    ? `Cập nhật: ${new Date(lastSync).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}`
-    : 'Chưa đồng bộ';
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <RefreshCw className="animate-spin text-slate-300" size={28} />
-      </div>
-    );
-  }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // RENDER
-  // ══════════════════════════════════════════════════════════════════════════
   return (
-    <div className="min-h-full bg-[#f8f9fb] pb-32">
-
-      {/* ─── HEADER ──────────────────────────────────────────────────────── */}
-      <div className="bg-white border-b border-slate-100 px-6 pt-5 pb-6">
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              Tổng quan POSM
-            </h1>
-            <p className="text-[12px] text-slate-400 font-medium mt-1">
-              Theo dõi nhanh tình hình POSM toàn hệ thống
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-400 font-medium bg-slate-50 px-3 py-2 rounded-xl">
-            <Clock size={12} className="text-slate-300" />
-            {syncLabel}
-          </div>
-        </div>
-
-        {/* ─── SUMMARY CARDS ────────────────────────────────────────────────── */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard 
-            label="Tổng số điểm" 
-            value={summaryStats.total} 
-            icon={<LayoutGrid size={20} className="text-indigo-600" />} 
-            trend="+12%" 
-            color="bg-indigo-50"
-          />
-          <StatCard 
-            label="Đã hoàn thành" 
-            value={summaryStats.done} 
-            icon={<CheckCircle2 size={20} className="text-emerald-600" />} 
-            trend={`${summaryStats.percent}%`} 
-            color="bg-emerald-50"
-          />
-          <StatCard 
-            label="Cần thực hiện" 
-            value={summaryStats.pending} 
-            icon={<CircleDashed size={20} className="text-amber-600" />} 
-            trend="P.1" 
-            color="bg-amber-50"
-          />
-          <StatCard 
-            label="Hiệu suất" 
-            value={`${summaryStats.percent}%`} 
-            icon={<TrendingUp size={20} className="text-blue-600" />} 
-            trend="Target 100%" 
-            color="bg-blue-50"
-          />
-        </section>
-
-        <div className="flex gap-3">
-          <div className="relative">
-            <select
-              value={weekFilter}
-              onChange={e => setWeekFilter(e.target.value)}
-              className="appearance-none bg-slate-50 border border-slate-100 rounded-xl pl-4 pr-9 py-2.5 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all"
-            >
-              <option value="All">Tuần: Tất cả</option>
-              {uniqueWeeks.map(w => <option key={w} value={w}>{w}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-          </div>
-          <div className="relative">
-            <select
-              value={brandFilter}
-              onChange={e => setBrandFilter(e.target.value)}
-              className="appearance-none bg-slate-50 border border-slate-100 rounded-xl pl-4 pr-9 py-2.5 text-xs font-semibold text-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-200 transition-all max-w-[160px]"
-            >
-              <option value="All">Brand: Tất cả</option>
-              {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
-            </select>
-            <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-300 pointer-events-none" />
-          </div>
+    <div className="min-h-full bg-slate-50 pb-32 font-sans selection:bg-indigo-100">
+      
+      {/* ── HEADER & FILTER ── */}
+      <div className="bg-white border-b border-slate-200 px-5 pt-8 pb-6 shadow-sm sticky top-0 z-10">
+        <h1 className="text-2xl font-black text-slate-900 tracking-tight">Executive Board</h1>
+        <p className="text-xs font-semibold text-slate-400 mt-1 flex items-center gap-1.5"><Clock size={12}/> Dữ liệu lúc {lastSync ? new Date(lastSync).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '--'}</p>
+        
+        <div className="flex gap-3 mt-6">
+          <select value={weekFilter} onChange={e => setWeekFilter(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400">
+            <option value="All">Tuần: Toàn chiến dịch</option>
+            {uniqueWeeks.map(w => <option key={w} value={w}>{w}</option>)}
+          </select>
+          <select value={brandFilter} onChange={e => setBrandFilter(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-[13px] font-bold text-slate-700 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400">
+            <option value="All">Brand: Tất cả</option>
+            {uniqueBrands.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
         </div>
       </div>
 
-      <div className="px-6 pt-6 space-y-6">
-
-        {/* ─── KPI CARDS ───────────────────────────────────────────────────── */}
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard
-            icon={<LayoutGrid size={18} style={{ color: ACCENT }} />}
-            label="Tổng điểm"
-            value={kpis.total}
-            sub="Toàn bộ hệ thống"
-          />
-          <KPICard
-            icon={<CheckCircle2 size={18} style={{ color: '#fff' }} />}
-            label="Đã hoàn thành"
-            value={kpis.done}
-            sub={`${kpis.percent}% mục tiêu`}
-            accent
-          />
-          <KPICard
-            icon={<CircleDashed size={18} style={{ color: AMBER }} />}
-            label="Chưa hoàn thành"
-            value={kpis.pending}
-            sub="Cần triển khai"
-          />
-          <KPICard
-            icon={<TrendingUp size={18} style={{ color: TEAL }} />}
-            label="Tỷ lệ hoàn thành"
-            value={`${kpis.percent}%`}
-            sub={kpis.percent >= 80 ? 'Tiến độ tốt' : kpis.percent >= 50 ? 'Đang triển khai' : 'Cần đẩy mạnh'}
-          />
-        </section>
-
-        {/* ─── INSIGHT AREA (Chart + Alerts) ───────────────────────────────── */}
-        <section className="grid grid-cols-1 lg:grid-cols-5 gap-5">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.15 }}
-            className="lg:col-span-3 bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-800">Tiến độ theo tuần</h2>
-                <p className="text-[11px] text-slate-400 mt-0.5">Tổng điểm (sáng) vs Đã hoàn thành (đậm)</p>
-              </div>
+      <div className="px-5 pt-6 space-y-6">
+        
+        {/* ── HERO HEARTBEAT ── */}
+        <section className="bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-100 flex flex-col items-center relative overflow-hidden">
+          <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-teal-400 to-emerald-400" />
+          <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Tỉ Lệ Hoàn Thành</h2>
+          <DoughnutChart percent={kpis.percent} total={kpis.total} done={kpis.done} color={kpis.percent > 75 ? TEAL : kpis.percent > 40 ? AMBER : RED} />
+          
+          <div className="flex justify-around w-full mt-8 gap-4">
+            <div className="text-center bg-slate-50 rounded-2xl p-4 flex-1 border border-slate-100">
+               <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">MALL</p>
+               <p className="text-lg font-black text-slate-800">{Math.round((kpis.mall.done / Math.max(kpis.mall.total, 1))*100)}%</p>
             </div>
-            {chartData.length > 0 ? (
-              <BarChart data={chartData} height={180} />
-            ) : (
-              <div className="flex items-center justify-center h-[180px] text-slate-300 text-xs font-medium">
-                Chưa có dữ liệu biểu đồ
-              </div>
-            )}
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.25 }}
-            className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-          >
-            <div className="flex items-center gap-2 mb-5">
-              <AlertTriangle size={15} className="text-amber-500" />
-              <h2 className="text-sm font-bold text-slate-800">Cần chú ý</h2>
+            <div className="text-center bg-slate-50 rounded-2xl p-4 flex-1 border border-slate-100">
+               <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">NGOÀI MALL</p>
+               <p className="text-lg font-black text-slate-800">{Math.round((kpis.nonMall.done / Math.max(kpis.nonMall.total, 1))*100)}%</p>
             </div>
-            {alerts.length > 0 ? (
-              <div>
-                {alerts.map((a, i) => (
-                  <AlertItem key={i} severity={a.severity} text={a.text} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-32 text-slate-300 text-xs font-medium">
-                Không có cảnh báo
-              </div>
-            )}
-          </motion.div>
+          </div>
         </section>
 
-        {/* ─── SECONDARY INSIGHTS ─────────────────────────────────────────── */}
-        <section className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-           {/* Mall vs Non-mall */}
-           <motion.div
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.3 }}
-            className="bg-white rounded-2xl p-6 border border-slate-100 shadow-soft"
-           >
-              <h2 className="text-sm font-bold text-slate-800 mb-4">Mall vs Ngoài Mall</h2>
-              <div className="space-y-6">
-                <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Trong Mall</span>
-                    <span className="text-sm font-black text-slate-800">{kpis.mall.percent}% <span className="text-[10px] text-slate-400 font-normal">({kpis.mall.done}/{kpis.mall.total})</span></span>
-                  </div>
-                  <ProgressBar percent={kpis.mall.percent} color={ACCENT} />
-                </div>
-                <div>
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase">Ngoài Mall</span>
-                    <span className="text-sm font-black text-slate-800">{kpis.nonMall.percent}% <span className="text-[10px] text-slate-400 font-normal">({kpis.nonMall.done}/{kpis.nonMall.total})</span></span>
-                  </div>
-                  <ProgressBar percent={kpis.nonMall.percent} color={TEAL} />
-                </div>
-              </div>
-           </motion.div>
-
-           {/* Top Districts */}
-           <motion.div
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.35 }}
-            className="bg-white rounded-2xl p-6 border border-slate-100 shadow-soft"
-           >
-              <h2 className="text-sm font-bold text-slate-800 mb-4">Khu vực có POSM cao nhất (Top 5)</h2>
-              {topDistricts.length > 0 ? (
-                <div>
-                  {topDistricts.map((d, i) => (
-                    <BreakdownRow key={d.name} rank={i + 1} name={d.name} value={d.done} total={d.total} percent={d.percent} color={TEAL} />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-10 text-center text-xs text-slate-300 font-bold">Chưa có dữ liệu khu vực</div>
-              )}
-           </motion.div>
+        {/* ── SMART ALERTS ── */}
+        <section>
+          <div className="flex items-center gap-2 mb-3 px-1">
+             <AlertTriangle size={16} className="text-rose-500" />
+             <h2 className="text-sm font-black text-slate-800">Cổng Cảnh Báo</h2>
+          </div>
+          {alerts.map((a, i) => <AlertItem key={i} severity={a.severity} text={a.text} />)}
         </section>
 
+        {/* ── TOP OUTCOMES & TRENDS ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-5">Tốc Độ Tuần</h2>
+             <BarChart data={chartData} />
+           </section>
 
-        {/* ─── FOOTER NOTE ─────────────────────────────────────────────────── */}
-        <div className="text-center pb-4 pt-2">
-          <p className="text-[10px] text-slate-300 font-medium leading-relaxed">
-            Dữ liệu lấy từ hệ thống Google Sheets · Tự động làm mới khi đăng nhập · {syncLabel}
-          </p>
+           <section className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+             <div className="flex justify-between items-end mb-5">
+                <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Brand Phủ Kém Nhất</h2>
+             </div>
+             {brandMetrics.bottom.length > 0 ? brandMetrics.bottom.map((b, i) => (
+                <LeaderboardRow key={b.name} rank={i+1} name={b.name} value={b.done} total={b.total} percent={b.percent} color={RED} />
+             )) : <p className="text-xs text-slate-300 font-bold text-center py-6">Không có dữ liệu rủi ro</p>}
+           </section>
         </div>
+
       </div>
     </div>
   );

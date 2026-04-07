@@ -147,15 +147,33 @@ export const useSync = (user) => {
            const possibleKeys = Array.from(assignmentsMap.keys());
            targetKey = possibleKeys.find(k => {
               const item = assignmentsMap.get(k);
+              
               // Must be the same PIC if we have multiple PICs
               if (picId && item.pic_id && item.pic_id !== picId) return false;
               
+              // Prevent matching a report to the wrong week ONLY IF the report contains a valid week number (1-53)
+              // This tolerates staff accidentally typing dates like "14/04/2026" which parses as W14042026
+              if (weekNum > 0 && weekNum <= 53 && item.week && item.week !== weekRaw) return false;
+              
               const baseMissionCode = cleanKey(item.job_code);
-              // Inclusive Match: Does the reported code contain the assigned code? 
-              // (e.g. GS25824XADAN contains GS25824)
-              if (baseMissionCode.length > 3 && jobCode.includes(baseMissionCode)) {
-                return true;
+              const baseMissionBrand = cleanKey(item.brand);
+              
+              // Two-Way Inclusive Match on Job Code:
+              // Handles if report had extra text (jobCode contains base)
+              // OR if plan had extra text (base contains jobCode)
+              if (baseMissionCode.length > 3 && jobCode.length > 3) {
+                  if (jobCode.includes(baseMissionCode) || baseMissionCode.includes(jobCode)) {
+                      return true;
+                  }
               }
+              
+              // Fallback: If the user typed the Store Name into the Job Code field
+              if (baseMissionBrand.length > 4 && jobCode.length > 4) {
+                  if (jobCode.includes(baseMissionBrand) || baseMissionBrand.includes(jobCode)) {
+                      return true;
+                  }
+              }
+              
               return false;
            });
         }
