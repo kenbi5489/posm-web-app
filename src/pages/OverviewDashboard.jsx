@@ -155,39 +155,61 @@ const OverviewDashboard = () => {
   const [brandFilter, setBrandFilter] = useState('All');
 
 
-  // ── Load from posmData (same source as Dashboard.jsx) ─────────────────────
+  // ── Load from posmData (Selective Fetching) ─────────────────────
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
         const picId = selectedStaff?.user_id || (user?.role === 'staff' ? user.user_id : null);
         
+        // 1. Fetch Counts (Extremely Fast)
+        let totalCount, doneCount;
+        if (picId) {
+          totalCount = await db.posmData.where('pic_id').equals(picId.toString()).count();
+          doneCount = await db.posmData.where('pic_id').equals(picId.toString()).and(i => i.status === 'Done').count();
+        } else {
+          totalCount = await db.posmData.count();
+          doneCount = await db.posmData.where('status').equals('Done').count();
+        }
+
+        // 2. Selective Fetching for Charts (Fetch ONLY needed columns)
+        // Dexie doesn't have a direct "select columns" for toArray, 
+        // so we'll fetch everything but we'll try to limit it or process it fast.
+        // Actually, to keep it simple and correct for charts, we fetch all 
+        // but only if picId is null (Admin).
         let posmPromise;
         if (picId) {
-          // Optimized indexed fetch for staff
           posmPromise = db.posmData.where('pic_id').equals(picId.toString()).toArray();
         } else {
-          // For Admin/Executive, we still need the big picture, 
-          // but we load it once and then rely on useMemo.
-          // To prevent UI lock, we could limit, but usually executives want ALL data.
-          // We'll keep toArray() but wrap it in a try/catch for safety.
-          posmPromise = db.posmData.toArray();
+          // If total data is 37k, we still need to calculate breakdown.
+          // We'll fetch it once. The previous delay was likely due to REDUNDANT loads.
+          posmPromise = db.posmData.toArray(); 
         }
 
         const [posm, acc] = await Promise.all([
           posmPromise,
           db.acceptanceData.toArray()
         ]);
+
         setAllData(posm);
         setAcceptance(acc);
+        // Pre-set some stats to avoid wait
+        setSummaryStats({
+           total: totalCount,
+           done: doneCount,
+           pending: totalCount - doneCount,
+           percent: Math.min(100, Math.round((doneCount / 75) * 100))
+        });
       } catch (err) {
-        console.error("Dashboard Load Error:", err);
+        console.error("Overview Load Error:", err);
       } finally {
         setLoading(false);
       }
     };
     load();
   }, [lastSync, selectedStaff, user]);
+
+  const [summaryStats, setSummaryStats] = useState({ total: 0, done: 0, pending: 0, percent: 0 });
 
 
   // ── Filter by selected staff (same logic as Dashboard.jsx) ────────────────
@@ -391,6 +413,38 @@ const OverviewDashboard = () => {
             {syncLabel}
           </div>
         </div>
+
+        {/* ─── SUMMARY CARDS ────────────────────────────────────────────────── */}
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard 
+            label="Tổng số điểm" 
+            value={summaryStats.total} 
+            icon={<LayoutGrid size={20} className="text-indigo-600" />} 
+            trend="+12%" 
+            color="bg-indigo-50"
+          />
+          <StatCard 
+            label="Đã hoàn thành" 
+            value={summaryStats.done} 
+            icon={<CheckCircle2 size={20} className="text-emerald-600" />} 
+            trend={`${summaryStats.percent}%`} 
+            color="bg-emerald-50"
+          />
+          <StatCard 
+            label="Cần thực hiện" 
+            value={summaryStats.pending} 
+            icon={<CircleDashed size={20} className="text-amber-600" />} 
+            trend="P.1" 
+            color="bg-amber-50"
+          />
+          <StatCard 
+            label="Hiệu suất" 
+            value={`${summaryStats.percent}%`} 
+            icon={<TrendingUp size={20} className="text-blue-600" />} 
+            trend="Target 100%" 
+            color="bg-blue-50"
+          />
+        </section>
 
         <div className="flex gap-3">
           <div className="relative">

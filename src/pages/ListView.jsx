@@ -13,8 +13,7 @@ const ListView = () => {
   const [week, setWeek] = useState(() => sessionStorage.getItem('lv_week') || 'All');
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [showImages, setShowImages] = useState(false);
-  const [displayCount, setDisplayCount] = useState(() => parseInt(sessionStorage.getItem('lv_count')) || 30);
-  const [dataVersion, setDataVersion] = useState(0);
+  const [displayCount, setDisplayCount] = useState(() => parseInt(sessionStorage.getItem('lv_count')) || 50);
   const [isLoading, setIsLoading] = useState(true);
 
   // Persistence
@@ -24,25 +23,26 @@ const ListView = () => {
     sessionStorage.setItem('lv_count', displayCount.toString());
   }, [search, week, displayCount]);
 
-  // Performance Optimized Load: Only fetch 'Done' items for the relevant user
+  // Load Base Data & Join (Optimized for 37k Rows)
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
         const picId = selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null);
         
-        let posmPromise;
+        let posmQuery = db.posmData.where('status').equals('Done');
         if (picId) {
-          // Indexed query on pic_id + status (approx via where/filter)
-          posmPromise = db.posmData.where('pic_id').equals(picId.toString()).and(i => i.status === 'Done').toArray();
-        } else {
-          // Admin view: limiting to Done items to avoid 37k row lag
-          posmPromise = db.posmData.where('status').equals('Done').toArray();
+          // If staff, we can narrow down by pic_id too. 
+          // Note: status index is used, then we filter in JS or via .and() 
+          // because Dexie doesn't easily support multi-index where natively 
+          // without a composite index. But where/and on 'Done' is fast.
+          posmQuery = db.posmData.where('pic_id').equals(picId.toString()).and(i => i.status === 'Done');
         }
 
+        // Limit the heavy data load to only what's needed for the current view
         const [posm, acc] = await Promise.all([
-          posmPromise,
-          db.acceptanceData.toArray() // Acceptance is usually smaller than master data
+          posmQuery.toArray(),
+          db.acceptanceData.toArray()
         ]);
         
         const accMap = new Map();
@@ -56,26 +56,10 @@ const ListView = () => {
       }
     };
     loadData();
-  }, [selectedStaff, user, dataVersion]);
+  }, [selectedStaff, user]);
 
-  const uniqueBrands = useMemo(() => {
-    return ['All', ...new Set(allItems.map(i => i.brand).filter(Boolean))].sort();
-  }, [allItems]);
-
-  const weeksList = useMemo(() => [...new Set(allItems.map(i => i.week))].filter(Boolean).sort((a,b) => (parseInt(a.replace(/\D/g,''))||0) - (parseInt(b.replace(/\D/g,''))||0)), [allItems]);
-
-  const getWeekLabel = (w) => {
-    if (w === 'All') return 'TUẦN: TẤT CẢ';
-    const sample = allItems.find(i => i.week === w);
-    if (!sample || !sample.date_assigned) return `TUẦN: ${w}`;
-    const match = sample.date_assigned.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (match) return `W${w.replace(/\D/g,'')} (T.${match[2]})`;
-    return `TUẦN: ${w}`;
-  };
-
-  const filteredItems = useMemo(() => {
-    let filtered = allItems; // already pre-filtered for 'Done' status in loadData
-    
+  const { filteredItems, uniqueWeeks, uniqueBrands } = useMemo(() => {
+    let filtered = allItems;
     if (week !== 'All') filtered = filtered.filter(i => i.week === week);
     if (selectedBrand !== 'All') filtered = filtered.filter(i => i.brand === selectedBrand);
     if (search) {
@@ -86,19 +70,22 @@ const ListView = () => {
         i.address?.toLowerCase().includes(s)
       );
     }
-    return filtered;
+    const brands = ['All', ...new Set(allItems.map(i => i.brand).filter(Boolean))].sort();
+    const weeksList = [...new Set(allItems.map(i => i.week))].filter(Boolean).sort();
+    return { filteredItems: filtered, uniqueWeeks: weeksList, uniqueBrands: brands };
   }, [allItems, week, search, selectedBrand]);
 
   const districtGroups = useMemo(() => {
     const groups = {};
-    filteredItems.forEach(item => {
+    // Only display up to the displayCount to keep DOM light
+    filteredItems.slice(0, displayCount).forEach(item => {
       const d = String(item.district || 'Khác').toUpperCase();
       if (!groups[d]) groups[d] = { name: d, items: [], done: 0 };
       groups[d].items.push(item);
       groups[d].done++;
     });
     return Object.values(groups).sort((a,b) => b.items.length - a.items.length);
-  }, [filteredItems]);
+  }, [filteredItems, displayCount]);
 
   return (
     <div className="flex flex-col h-full bg-slate-50/30">
@@ -118,23 +105,23 @@ const ListView = () => {
             placeholder="Tìm kiếm báo cáo..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-16 pr-6 py-5 bg-white/10 border border-white/20 rounded-[2rem] text-white text-base font-bold placeholder-white/30 focus:outline-none focus:bg-white/15 shadow-inner"
+            className="w-full pl-16 pr-6 py-5 bg-white/10 border border-white/20 rounded-[2rem] text-white text-base font-bold placeholder-white/30 focus:outline-none focus:bg-white/15"
           />
         </div>
         <div className="grid grid-cols-2 gap-3 relative z-10 mb-6">
-          <select value={week} onChange={(e) => setWeek(e.target.value)} className="bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl border border-white/10 px-5 py-4 outline-none appearance-none">
-            <option value="All" className="text-slate-800">TUẦN: ALL</option>
-            {weeksList.map(w => <option key={w} value={w} className="text-slate-800">{getWeekLabel(w).toUpperCase()}</option>)}
+          <select value={week} onChange={(e) => setWeek(e.target.value)} className="bg-white/10 text-white text-[10px] font-black uppercase rounded-2xl border border-white/10 px-5 py-4 outline-none appearance-none">
+            <option value="All">TUẦN: ALL</option>
+            {uniqueWeeks.map(w => <option key={w} value={w}>{w.toUpperCase()}</option>)}
           </select>
-          <select value={selectedBrand} onChange={(e) => setSelectedBrand(e.target.value)} className="bg-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl border border-white/10 px-5 py-4 outline-none appearance-none">
-            <option value="All" className="text-slate-800">BRAND: ALL</option>
-            {uniqueBrands.filter(b => b !== 'All').map(b => <option key={b} value={b} className="text-slate-800">{b.toUpperCase()}</option>)}
+          <select value={selectedBrand} onChange={(e) => setSelectedBrand(e.target.value)} className="bg-white/10 text-white text-[10px] font-black uppercase rounded-2xl border border-white/10 px-5 py-4 outline-none appearance-none">
+            <option value="All">BRAND: ALL</option>
+            {uniqueBrands.filter(b => b !== 'All').map(b => <option key={b} value={b}>{b.toUpperCase()}</option>)}
           </select>
         </div>
         <div className="flex items-center justify-end px-2">
-            <label className="flex items-center gap-3 cursor-pointer group">
+            <label className="flex items-center gap-3 cursor-pointer">
                 <input type="checkbox" checked={showImages} onChange={(e) => setShowImages(e.target.checked)} className="hidden" />
-                <span className="text-[10px] font-black text-white/70 group-active:text-white uppercase tracking-widest">Xem hình ảnh (Link)</span>
+                <span className="text-[10px] font-black text-white/70 uppercase tracking-widest">Xem hình ảnh (Link)</span>
                 <div className={`w-10 h-6 rounded-full p-1 transition-all duration-300 ${showImages ? 'bg-emerald-500' : 'bg-white/20'}`}>
                     <div className={`w-4 h-4 bg-white rounded-full transition-transform duration-300 ${showImages ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
@@ -144,15 +131,9 @@ const ListView = () => {
 
       <div className="flex-1 overflow-y-auto px-6 py-12 space-y-12 pb-32">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4">
-             <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang tải dữ liệu...</p>
-          </div>
+          <div className="text-center py-20 animate-pulse text-slate-400 font-bold uppercase tracking-widest text-[10px]">Đang nạp dữ liệu...</div>
         ) : districtGroups.length === 0 ? (
           <div className="p-20 text-center space-y-4">
-             <div className="w-20 h-20 bg-slate-100 rounded-[2rem] flex items-center justify-center mx-auto text-slate-300">
-                <LayoutGrid size={32} />
-             </div>
              <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Không tìm thấy báo cáo</p>
           </div>
         ) : (
@@ -161,10 +142,10 @@ const ListView = () => {
               <motion.section key={group.name} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: gIdx * 0.05 }} className="space-y-6">
                 <div className="flex items-center justify-between px-2">
                    <div className="flex items-center gap-3"><div className="w-1 h-5 bg-indigo-600 rounded-full"/><h3 className="text-xs font-black text-slate-800 tracking-widest uppercase">{group.name}</h3></div>
-                   <span className="bg-slate-100/50 text-slate-400 text-[10px] font-black px-4 py-1 rounded-full">{group.done}/XONG</span>
+                   <span className="bg-slate-100/50 text-slate-400 text-[10px] font-black px-4 py-1 rounded-full">{group.done}</span>
                 </div>
                 <div className="space-y-6">
-                  {group.items.slice(0, displayCount).map((item) => (
+                  {group.items.map((item) => (
                      <ListItem key={item.job_code} item={item} report={acceptanceMap.get(item.job_code)} showImages={showImages} />
                   ))}
                 </div>
@@ -173,7 +154,7 @@ const ListView = () => {
           </AnimatePresence>
         )}
         {filteredItems.length > displayCount && (
-           <button onClick={() => setDisplayCount(v => v + 30)} className="w-full py-6 bg-white border border-slate-100 rounded-[2.5rem] text-xs font-black text-indigo-600 uppercase tracking-widest active:scale-95 shadow-sm">Xem thêm dữ liệu</button>
+           <button onClick={() => setDisplayCount(v => v + 50)} className="w-full py-6 bg-white border border-slate-100 rounded-[2.5rem] text-xs font-black text-indigo-600 uppercase tracking-widest active:scale-95 shadow-sm">Xem thêm dữ liệu</button>
         )}
       </div>
     </div>
@@ -189,11 +170,11 @@ const ListItem = ({ item, report, showImages }) => {
     <motion.div layout className="bg-white p-8 rounded-[3rem] shadow-soft border border-slate-50 transition-all">
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1 min-w-0 pr-4">
-            <h4 className="text-lg font-black text-slate-800 tracking-tight uppercase leading-tight mb-2">{item.brand || 'POSM Point'}</h4>
-            <div className="flex items-center gap-2 mb-4"><MapPin size={12} className="text-slate-300"/><p className="text-xs font-bold text-slate-400 line-clamp-1 tracking-tight">{item.address}</p></div>
+            <h4 className="text-lg font-black text-slate-800 tracking-tight uppercase mb-2">{item.brand || 'POSM Point'}</h4>
+            <div className="flex items-center gap-2 mb-4"><MapPin size={12} className="text-slate-300"/><p className="text-xs font-bold text-slate-400 line-clamp-1">{item.address}</p></div>
            <div className="flex flex-wrap items-center gap-2">
               <span className="text-[9px] font-black bg-slate-50 text-slate-400 px-3 py-1.5 rounded-xl border border-slate-100 uppercase tracking-widest"><Hash size={10} className="inline mr-1" />{item.job_code}</span>
-              <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase tracking-widest ${hasPosm ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{hasPosm ? 'Có POSM' : 'K. POSM'}</span>
+              <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase ${hasPosm ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{hasPosm ? 'Có POSM' : 'K. POSM'}</span>
               {isMall && <span className="text-[9px] font-black bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl border border-indigo-100 uppercase tracking-widest">MALL</span>}
            </div>
         </div>
@@ -203,14 +184,10 @@ const ListItem = ({ item, report, showImages }) => {
       {showImages && report && (report.image1 || report.image2) && (
         <div className="flex gap-3 pt-4 border-t border-slate-50">
             {report.image1 && (
-                <a href={report.image1} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors">
-                  <ExternalLink size={14} /> Ảnh 1
-                </a>
+                <a href={report.image1} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors"><ExternalLink size={14} /> Ảnh 1</a>
             )}
             {report.image2 && (
-                <a href={report.image2} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors">
-                  <ExternalLink size={14} /> Ảnh 2
-                </a>
+                <a href={report.image2} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors"><ExternalLink size={14} /> Ảnh 2</a>
             )}
         </div>
       )}

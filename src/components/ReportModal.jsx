@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Camera, CheckCircle, AlertCircle, Loader2, Image as ImageIcon, MessageSquare, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -9,6 +10,16 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+
+  // Scroll to top when opening (extra safety)
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+    return () => { document.body.style.overflow = 'auto'; };
+  }, [isOpen]);
 
   // Form State
   const [storeStatus, setStoreStatus] = useState('Site check');
@@ -193,14 +204,14 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/40 backdrop-blur-md p-0 sm:p-4 overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4 overflow-hidden">
       <motion.div
         initial={{ y: '100%', opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: '100%', opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="w-full max-w-xl bg-white/95 rounded-t-[3rem] sm:rounded-[3rem] p-8 space-y-8 shadow-[0_-20px_50px_rgba(0,0,0,0.1)] relative border-t border-white"
+        className="w-full max-w-xl bg-white/95 rounded-t-[3rem] sm:rounded-[3rem] p-8 space-y-8 shadow-[0_-20px_50px_rgba(0,0,0,0.2)] relative border-t border-white"
       >
         {/* Handle for Mobile View */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-slate-200 rounded-full sm:hidden" />
@@ -236,7 +247,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
               </div>
             </div>
 
-            <div className="space-y-6 max-h-[55vh] overflow-y-auto pr-3 custom-scrollbar">
+            <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-3 custom-scrollbar">
 
               {/* SECTION: TÌNH TRẠNG POSM */}
               <div className="space-y-4">
@@ -403,7 +414,8 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
           </form>
         )}
       </motion.div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
