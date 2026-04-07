@@ -92,7 +92,7 @@ const Profile = () => {
           </div>
           <div>
             <h2 className="text-2xl font-black text-slate-900 leading-tight">{user?.ho_ten}</h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{user?.role === 'admin' ? 'Quản lý / Điều phối' : 'Nhân viên hiện trường'}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{user?.role === 'admin' ? 'Quản lý / Điều phối' : 'Merchant Operation Executive'}</p>
           </div>
         </div>
         

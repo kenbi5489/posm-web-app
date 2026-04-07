@@ -17,6 +17,7 @@ const LocationDetail = () => {
   const [reverting, setReverting] = useState(false);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const loadItem = async () => {
       const found = await db.posmData.where({ job_code: jobCode, brand: decodeURIComponent(brand) }).first();
       setItem(found);

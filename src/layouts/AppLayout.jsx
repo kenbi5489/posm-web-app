@@ -153,7 +153,7 @@ const AppLayout = () => {
           <span className="text-[10px] font-bold text-primary uppercase tracking-tighter mt-1">Chụp nhanh</span>
         </div>
 
-        <NavItem to="/list" icon={<List size={22} />} label="Danh sách" />
+        <NavItem to="/list" icon={<List size={22} />} label="Chi tiết" />
         <NavItem to="/profile" icon={<User size={22} />} label="Cá nhân" />
       </nav>
 

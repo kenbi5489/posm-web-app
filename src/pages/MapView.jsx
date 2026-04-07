@@ -151,7 +151,12 @@ const MapView = () => {
                             <h4 className={`text-sm font-black truncate leading-tight ${item.isDone ? 'text-slate-400' : 'text-slate-800'}`}>
                               {item.brand || 'POSM Point'}
                             </h4>
-                            <p className="text-[10px] font-bold text-slate-400 line-clamp-1 mt-1 uppercase">{item.address}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-[10px] font-bold text-slate-400 line-clamp-1 uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">{item.address}</p>
+                                {item.mall_name && item.mall_name !== 'N/A' && (
+                                    <span className="text-[8px] font-black bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md border border-indigo-100 uppercase tracking-tighter shrink-0">MALL</span>
+                                )}
+                            </div>
                           </div>
                           {item.isDone ? (
                             <div className="flex gap-2 shrink-0">

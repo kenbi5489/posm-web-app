@@ -89,6 +89,19 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
     setError(null);
 
     try {
+      const hasImages = images.length > 0;
+      const hasNote = note && note.trim().length > 0;
+
+      if (!hasImages && !hasNote) {
+        throw new Error("Bạn vui lòng kiểm tra lại thông tin");
+      }
+      if (!hasImages) {
+        throw new Error("Thiếu hình ảnh nghiệm thu");
+      }
+      if (!hasNote) {
+        throw new Error("Thiếu ghi chú");
+      }
+
       const mappedPosmStatus = posmStatus === 'Có POSM' 
         ? 'Có POSM, NV thanh toán được' 
         : 'KHÔNG POSM, NV thanh toán được';
@@ -172,7 +185,9 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
       }
     } catch (err) {
       console.error("Submit error details:", err);
-      setError("Lỗi kết nối hoặc Script chưa được Cấu hình đúng (Anyone).");
+      // If it's a validation error (from our throw), use its message. Otherwise generic.
+      const isValidationError = ["Thiếu hình ảnh nghiệm thu", "Thiếu ghi chú", "Bạn vui lòng kiểm tra lại thông tin"].includes(err.message);
+      setError(isValidationError ? err.message : "Lỗi kết nối hoặc Script chưa được Cấu hình đúng (Anyone).");
     } finally {
       setLoading(false);
     }
@@ -225,7 +240,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
 
               {/* SECTION: TÌNH TRẠNG POSM */}
               <div className="space-y-4">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Tình trạng POSM</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Tình trạng POSM <span className="text-rose-500">*</span></label>
                 <div className="grid grid-cols-2 gap-4">
                   <motion.button
                     type="button"
@@ -262,7 +277,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                       className="p-5 bg-rose-50/50 rounded-3xl border border-rose-100 space-y-3"
                     >
                       <label className="text-[10px] font-black text-rose-400 uppercase tracking-widest flex items-center gap-1.5 px-1">
-                        <AlertCircle size={12} /> Lí do cụ thể
+                        <AlertCircle size={12} /> Lí do cụ thể <span className="text-rose-500">*</span>
                       </label>
                       <select
                         value={reasonNoPosm}
@@ -272,6 +287,8 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                         <option value="Chính sách cửa hàng">Chính sách cửa hàng</option>
                         <option value="Cửa hàng tháo">Cửa hàng tháo</option>
                         <option value="POSM hư hỏng">POSM hư hỏng</option>
+                        <option value="Không hợp tác">Không hợp tác</option>
+                        <option value="Cửa hàng đóng cửa">Cửa hàng đóng cửa</option>
                       </select>
                     </motion.div>
                   )}
@@ -282,7 +299,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
               <div className="grid grid-cols-1 gap-6 bg-slate-50/50 p-6 rounded-[2.5rem] border border-slate-100">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Cửa hàng & Thanh toán</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Cửa hàng & Thanh toán <span className="text-rose-500">*</span></label>
                     <div className="grid grid-cols-1 gap-3">
                       <select
                         value={storeStatus}
@@ -294,20 +311,23 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                         <option value="Không hợp tác">🤝 Không hợp tác</option>
                         <option value="Đóng cửa">🚫 Cửa hàng đóng cửa</option>
                       </select>
-                      <select
-                        value={paymentKnowledge}
-                        onChange={(e) => setPaymentKnowledge(e.target.value)}
-                        className="w-full p-4 bg-white rounded-2xl text-sm font-bold text-slate-800 border border-slate-100 shadow-sm outline-none"
-                      >
-                        <option value="Nhân viên biết thanh toán">💳 NV biết thanh toán</option>
-                        <option value="Nhân viên không biết/nắm thanh toán">❓ NV không nắm rõ</option>
-                      </select>
+                      
+                      {storeStatus !== 'Không hợp tác' && storeStatus !== 'Đóng cửa' && (
+                        <select
+                          value={paymentKnowledge}
+                          onChange={(e) => setPaymentKnowledge(e.target.value)}
+                          className="w-full p-4 bg-white rounded-2xl text-sm font-bold text-slate-800 border border-slate-100 shadow-sm outline-none"
+                        >
+                          <option value="Nhân viên biết thanh toán">💳 NV biết thanh toán</option>
+                          <option value="Nhân viên không biết/nắm thanh toán">❓ NV không nắm rõ</option>
+                        </select>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Hình ảnh thực tế</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Hình ảnh thực tế <span className="text-rose-500">*</span></label>
                   <div className="flex gap-4">
                     {images.map((img, idx) => (
                       <motion.div
@@ -342,7 +362,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
 
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-2">
-                    <MessageSquare size={12} /> Ghi chú nghiệp vụ
+                    <MessageSquare size={12} /> Ghi chú nghiệp vụ <span className="text-rose-500">*</span>
                   </label>
                   <textarea
                     value={note}

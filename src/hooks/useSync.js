@@ -102,44 +102,53 @@ export const useSync = (user) => {
 
       console.log(`Synced ${assignmentsMap.size} assignments`);
 
-      // Step 3: Fast Overlay reports from GID_ACCEPTANCE
-      rawAcceptance.forEach(row => {
-        const jobCode = getVal(row, 'Mã cv') || getVal(row, 'job_code') || getVal(row, 'jobCode') || getVal(row, 'Mã CV');
-        if (!jobCode) return;
+      // Step 3: Fast Overlay reports
+      let matchedCount = 0;
+      let unmatchedCount = 0;
 
+      rawAcceptance.forEach(row => {
+        const jobCode = (getVal(row, 'Mã cv') || getVal(row, 'job_code') || getVal(row, 'jobCode') || getVal(row, 'Mã CV') || '').toString().trim().toUpperCase();
+        const picName = (getVal(row, 'Tên nhân viên') || getVal(row, 'Nhân viên') || '').toString().trim();
         const weekVal = getVal(row, 'Week') || getVal(row, 'Tuần') || getVal(row, 'WEEKnum') || '';
-        const weekNum = weekVal.toString().replace(/[^0-9]/g, '');
+        const weekNum = parseInt(weekVal.toString().replace(/\D/g, '')) || 0;
         const weekRaw = weekVal.toString().toUpperCase().startsWith('W') ? weekVal.toString().toUpperCase() : (weekNum ? `W${weekNum}` : '');
         
-        const picName = (getVal(row, 'Tên nhân viên') || getVal(row, 'Nhân viên') || '').toString().trim();
         const picId = nameToId.get(stripAccents(picName)) || '';
         
         let targetKey = null;
         const exactKey = `${jobCode}_${weekRaw}`;
         
-        if (weekRaw && assignmentsMap.has(exactKey)) {
+        if (jobCode && weekRaw && assignmentsMap.has(exactKey)) {
           targetKey = exactKey;
-        } else if (jobCodeToIndex.has(jobCode)) {
+        } else if (jobCode && jobCodeToIndex.has(jobCode)) {
           const possibilities = jobCodeToIndex.get(jobCode);
+          // Improved Fuzzy PIC Matching: Try exact first, then partial
           targetKey = possibilities.find(k => {
             const item = assignmentsMap.get(k);
-            return !picName || stripAccents(item.pic) === stripAccents(picName);
+            const aPic = stripAccents(item.pic);
+            const rPic = stripAccents(picName);
+            return !rPic || aPic === rPic || aPic.includes(rPic) || rPic.includes(aPic);
           }) || possibilities[0];
         }
 
         if (targetKey) {
           const existing = assignmentsMap.get(targetKey);
           const reportPosmStatus = getVal(row, 'POSM_Status') || getVal(row, 'POSM Status') || getVal(row, 'Tình trạng POSM');
+          
+          matchedCount++;
           assignmentsMap.set(targetKey, {
             ...existing,
             status: 'Done',
-            pic: picName || existing.pic,
-            pic_id: picId || existing.pic_id,
-            week: weekRaw || existing.week,
+            // PRESERVE original PIC ownership if it exists
+            pic: existing.pic || picName,
+            pic_id: existing.pic_id || picId,
+            week: existing.week || weekRaw, 
             completion_date: getVal(row, 'Timestamp') || '',
-            posm_status: reportPosmStatus || existing.posm_status_master || ''
+            posm_status: reportPosmStatus || existing.posm_status_master || '',
+            reported_by: picName // Keep track of who reported it separately
           });
-        } else {
+        } else if (jobCode) {
+          unmatchedCount++;
           // New discovery
           const key = `${jobCode}_${weekRaw || 'Unknown'}`;
           const reportPosmStatus = getVal(row, 'POSM_Status') || getVal(row, 'POSM Status') || getVal(row, 'Tình trạng POSM');
@@ -154,10 +163,13 @@ export const useSync = (user) => {
             district: getVal(row, 'District') || getVal(row, 'Quận') || getVal(row, 'Quan') || 'N/A',
             city: getVal(row, 'City') || getVal(row, 'Thành Phố') || getVal(row, 'Thanh Pho') || 'N/A',
             completion_date: getVal(row, 'Timestamp') || '',
-            posm_status: reportPosmStatus || ''
+            posm_status: reportPosmStatus || '',
+            reported_by: picName
           });
         }
       });
+
+      console.log(`[Sync Stats] Matched: ${matchedCount}, Unmatched: ${unmatchedCount}`);
 
       const transformed = Array.from(assignmentsMap.values());
       const transformedAcceptance = rawAcceptance

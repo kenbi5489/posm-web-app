@@ -140,19 +140,6 @@ const BreakdownRow = ({ rank, name, value, total, percent, color }) => {
   );
 };
 
-const PhotoCard = ({ url, label, code }) => (
-  <div className="min-w-[120px] aspect-[3/4] bg-slate-100 rounded-xl overflow-hidden relative group">
-    {url ? (
-      <img src={url} alt={label} className="w-full h-full object-cover" />
-    ) : (
-      <div className="w-full h-full flex items-center justify-center text-[10px] text-slate-300 font-bold p-2 text-center">Không có ảnh</div>
-    )}
-    <div className="absolute inset-x-0 bottom-0 bg-black/60 p-1.5 backdrop-blur-sm">
-      <p className="text-[8px] font-black text-white truncate">{code}</p>
-      <p className="text-[7px] text-white/70 uppercase tracking-tighter">{label}</p>
-    </div>
-  </div>
-);
 
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -172,16 +159,35 @@ const OverviewDashboard = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const [posm, acc] = await Promise.all([
-        db.posmData.toArray(),
-        db.acceptanceData.toArray()
-      ]);
-      setAllData(posm);
-      setAcceptance(acc);
-      setLoading(false);
+      try {
+        const picId = selectedStaff?.user_id || (user?.role === 'staff' ? user.user_id : null);
+        
+        let posmPromise;
+        if (picId) {
+          // Optimized indexed fetch for staff
+          posmPromise = db.posmData.where('pic_id').equals(picId.toString()).toArray();
+        } else {
+          // For Admin/Executive, we still need the big picture, 
+          // but we load it once and then rely on useMemo.
+          // To prevent UI lock, we could limit, but usually executives want ALL data.
+          // We'll keep toArray() but wrap it in a try/catch for safety.
+          posmPromise = db.posmData.toArray();
+        }
+
+        const [posm, acc] = await Promise.all([
+          posmPromise,
+          db.acceptanceData.toArray()
+        ]);
+        setAllData(posm);
+        setAcceptance(acc);
+      } catch (err) {
+        console.error("Dashboard Load Error:", err);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
-  }, [lastSync]);
+  }, [lastSync, selectedStaff, user]);
 
 
   // ── Filter by selected staff (same logic as Dashboard.jsx) ────────────────
@@ -345,15 +351,6 @@ const OverviewDashboard = () => {
       .slice(0, 5);
   }, [filtered]);
 
-  // ── Recent Evidence Gallery
-  const recentPhotos = useMemo(() => {
-    const doneJobCodes = new Set(filtered.filter(r => r.status === 'Done').map(r => r.job_code));
-    return acceptance
-      .filter(a => doneJobCodes.has(a.job_code))
-      .filter(a => a.image1 || a.image2)
-      .slice(-10)
-      .reverse();
-  }, [filtered, acceptance]);
 
 
 // Breakdown section removed to be replaced by Gallery
@@ -543,33 +540,6 @@ const OverviewDashboard = () => {
            </motion.div>
         </section>
 
-        {/* ─── EVIDENCE GALLERY ────────────────────────────────────────────── */}
-        <motion.section
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="bg-white rounded-2xl p-6 border border-slate-100 shadow-soft"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-slate-800">Ảnh nghiệm thu thực tế</h2>
-            <p className="text-[10px] text-slate-400 font-medium">Bằng chứng triển khai mới nhất</p>
-          </div>
-          
-          {recentPhotos.length > 0 ? (
-            <div className="flex gap-3 overflow-x-auto pb-4 hide-scrollbar snap-x">
-               {recentPhotos.map((p, idx) => (
-                 <React.Fragment key={idx}>
-                   {p.image1 && <PhotoCard url={p.image1} label="Ảnh 1" code={p.job_code} />}
-                   {p.image2 && <PhotoCard url={p.image2} label="Ảnh 2" code={p.job_code} />}
-                 </React.Fragment>
-               ))}
-            </div>
-          ) : (
-            <div className="py-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Chưa có ảnh nghiệm thu</p>
-            </div>
-          )}
-        </motion.section>
 
         {/* ─── FOOTER NOTE ─────────────────────────────────────────────────── */}
         <div className="text-center pb-4 pt-2">
