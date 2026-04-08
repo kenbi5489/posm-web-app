@@ -6,32 +6,30 @@ export const GID_DATA = '620957061';
 export const GID_USERS = '1500350493';
 export const GID_ACCEPTANCE = '511717734';
 
+// Reverting to gviz/tq because external CORS proxies (like allorigins/corsproxy) are completely unreliable for production PWAs and cause catastrophic fetch failures.
 const getCsvUrl = (gid) => `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${gid}&tq=select%20*`;
 
 export const fetchSheetData = async (gid, fallbackData) => {
   try {
     const url = getCsvUrl(gid);
     const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch data');
+    if (!response.ok) throw new Error('Network response was not ok');
     const csvText = await response.text();
 
-    // Check if it's an error page (HTML) instead of CSV
     if (csvText.trim().startsWith('<')) {
-      console.warn(`GID ${gid} returned an error page. Using fallback data.`);
-      return fallbackData;
+      return { data: fallbackData, isMock: true, error: 'Authorization or GID error' };
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       Papa.parse(csvText, {
         header: true,
         skipEmptyLines: true,
-        complete: (results) => resolve(results.data),
-        error: (error) => reject(error)
+        complete: (results) => resolve({ data: results.data, isMock: false }),
+        error: (error) => resolve({ data: fallbackData, isMock: true, error: error.message })
       });
     });
   } catch (error) {
-    console.warn(`Fetch error for GID ${gid}:`, error);
-    return fallbackData
+    return { data: fallbackData, isMock: true, error: error.message };
   }
 };
 

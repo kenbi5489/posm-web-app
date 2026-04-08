@@ -135,6 +135,14 @@ const OverviewDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [weekFilter, setWeekFilter] = useState('All');
   const [brandFilter, setBrandFilter] = useState('All');
+  const { syncing, pullData, clearAndResync } = useSync(user);
+  const [diag, setDiag] = useState(null);
+  const [showDiag, setShowDiag] = useState(false);
+
+  useEffect(() => {
+    const info = localStorage.getItem('sync_diag');
+    if (info) setDiag(JSON.parse(info));
+  }, [lastSync]);
 
   useEffect(() => {
     const load = async () => {
@@ -155,7 +163,14 @@ const OverviewDashboard = () => {
     const picId = selectedStaff?.user_id || (user?.role === 'staff' ? user.user_id : null);
     let base = allData;
     if (picId) {
-      base = allData.filter(item => item.pic_id === picId);
+      const pidNorm = String(picId).trim().toLowerCase();
+      const pNameNorm = stripAccents(selectedStaff?.ho_ten || user?.ho_ten || '').toLowerCase().trim();
+
+      base = allData.filter(i => {
+         const mPId = String(i.pic_id || '').trim().toLowerCase();
+         const mPName = stripAccents(i.pic || '').toLowerCase().trim();
+         return (pidNorm && mPId && mPId === pidNorm) || (pNameNorm && mPName && mPName === pNameNorm);
+      });
     }
 
     const uWeeks = [...new Set(base.map(i => i.week))].filter(Boolean).sort((a, b) => (parseInt(a.replace(/\D/g, '')) || 0) - (parseInt(b.replace(/\D/g, '')) || 0));
@@ -170,17 +185,28 @@ const OverviewDashboard = () => {
 
   // Master KPI
   const kpis = useMemo(() => {
-    const total = filtered.length;
-    const done = filtered.filter(i => i.status === 'Done').length;
+    const assignedFiltered = filtered.filter(i => !i.is_virtual && !String(i.job_code || '').startsWith('NEW_'));
+    const adhocFiltered = filtered.filter(i => i.is_virtual || String(i.job_code || '').startsWith('NEW_'));
+
+    const assignedTotal = assignedFiltered.length;
+    const assignedDone = assignedFiltered.filter(i => i.status?.toLowerCase() === 'done').length;
+    const adhocDone = adhocFiltered.filter(i => i.status?.toLowerCase() === 'done').length;
+    const totalDone = assignedDone + adhocDone;
     
-    // As per new rules: total assignment should be 75 per week for staff, or fallback to real total
-    const quota = user?.role === 'staff' ? 75 : Math.max(total, 1);
-    const percent = Math.min(100, Math.round((done / quota) * 100));
+    // Tỉ lệ hoàn thành: 75 points = 100%
+    const percent = Math.min(100, Math.round((totalDone / 75) * 100));
+    
+    // Hiệu suất tuyến: % on total assigned (excluding adhoc)
+    const efficiency = assignedTotal > 0 ? Math.round((assignedDone / assignedTotal) * 100) : 0;
 
     const mallRecs = filtered.filter(isMall);
     const nonMallRecs = filtered.filter(r => !isMall(r));
     return { 
-      total, done, percent,
+      total: assignedTotal, 
+      done: totalDone, 
+      percent,
+      adhocDone,
+      efficiency,
       mall: { total: mallRecs.length, done: mallRecs.filter(r => r.status === 'Done').length },
       nonMall: { total: nonMallRecs.length, done: nonMallRecs.filter(r => r.status === 'Done').length }
     };
@@ -259,13 +285,21 @@ const OverviewDashboard = () => {
           <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-6">Tỉ Lệ Hoàn Thành</h2>
           <DoughnutChart percent={kpis.percent} total={kpis.total} done={kpis.done} color={kpis.percent > 75 ? TEAL : kpis.percent > 40 ? AMBER : RED} />
           
-          <div className="flex justify-around w-full mt-8 gap-4">
-            <div className="text-center bg-slate-50 rounded-2xl p-4 flex-1 border border-slate-100">
-               <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">MALL</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 w-full mt-8 gap-4 px-2">
+            <div className="text-center bg-slate-50 rounded-2xl p-4 border border-slate-100 shadow-sm">
+               <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">HIỆU SUẤT TUYẾN</p>
+               <p className="text-lg font-black text-indigo-600">{kpis.efficiency}%</p>
+            </div>
+            <div className="text-center bg-slate-50 rounded-2xl p-4 border border-slate-100 shadow-sm">
+               <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">ĐIỂM NGOÀI DS</p>
+               <p className="text-lg font-black text-violet-600">{kpis.adhocDone}</p>
+            </div>
+            <div className="text-center bg-slate-50 rounded-2xl p-4 border border-slate-100 shadow-sm">
+               <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">MALL</p>
                <p className="text-lg font-black text-slate-800">{Math.round((kpis.mall.done / Math.max(kpis.mall.total, 1))*100)}%</p>
             </div>
-            <div className="text-center bg-slate-50 rounded-2xl p-4 flex-1 border border-slate-100">
-               <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">NGOÀI MALL</p>
+            <div className="text-center bg-slate-50 rounded-2xl p-4 border border-slate-100 shadow-sm">
+               <p className="text-[9px] font-bold text-slate-400 uppercase mb-1">NGOÀI MALL</p>
                <p className="text-lg font-black text-slate-800">{Math.round((kpis.nonMall.done / Math.max(kpis.nonMall.total, 1))*100)}%</p>
             </div>
           </div>

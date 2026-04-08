@@ -118,7 +118,7 @@ const LocationDetail = () => {
         </div>
 
         {/* Acceptance Info (Enhanced for Request) */}
-        {isDone && acceptance ? (
+        {isDone && (
           <motion.div 
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -130,38 +130,41 @@ const LocationDetail = () => {
             </h3>
             
             <div className="space-y-8">
-              <DetailRow icon={<MessageCircle className="text-indigo-400" />} label="Ghi chú" value={acceptance.note || 'Không có ghi chú từ nhân viên'} />
+              <DetailRow icon={<MessageCircle className="text-indigo-400" />} label="Ghi chú & PIC" value={`${acceptance?.note || item.acceptance_note || 'Không có ghi chú'} - ${item.reported_by || item.pic || 'N/A'}`} />
               
               <div className="pt-6 border-t border-slate-50">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Ảnh nghiệm thu</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Hình ảnh báo cáo</p>
                 <div className="flex gap-4">
-                  {acceptance.image1 ? (
-                    <a href={acceptance.image1} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
+                  {(acceptance?.image1 || item.image1) ? (
+                    <a href={acceptance?.image1 || item.image1} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
                       <LinkIcon size={14} /> Ảnh 1
                     </a>
                   ) : (
-                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Link 1</div>
+                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Ảnh 1</div>
                   )}
                   
-                  {acceptance.image2 ? (
-                    <a href={acceptance.image2} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
+                  {(acceptance?.image2 || item.image2) ? (
+                    <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
                       <LinkIcon size={14} /> Ảnh 2
                     </a>
                   ) : (
-                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Link 2</div>
+                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Ảnh 2</div>
                   )}
                 </div>
               </div>
             </div>
           </motion.div>
-        ) : !isDone ? (
+        )}
+        
+        {/* If not done show banner */}
+        {!isDone && (
             <div className="bg-slate-100/50 border border-dashed border-slate-200 rounded-[2.5rem] p-10 text-center">
                 <TriangleAlert className="mx-auto text-slate-300 mb-4" size={32} />
                 <p className="text-slate-400 text-xs font-bold leading-relaxed uppercase tracking-wider">
                     Dữ liệu nghiệm thu chưa có.<br/>Vui lòng hoàn thành báo cáo trước.
                 </p>
             </div>
-        ) : null}
+        )}
 
         {/* Map Preview */}
         <div className="w-full h-56 bg-slate-200 rounded-[2.5rem] overflow-hidden shadow-inner relative border-4 border-white">

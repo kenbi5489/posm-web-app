@@ -1,39 +1,62 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
+import { useSync } from '../hooks/useSync';
 import { CheckCircle2, CircleDashed, LayoutGrid, MapPin, ListChecks, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 
+const stripAccents = (s) => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D') || '';
+
 const Dashboard = () => {
-  const { user, selectedStaff, lastSync } = useAuth();
+  const { user, selectedStaff } = useAuth();
+  const { syncing, lastSync, clearAndResync } = useSync(user);
   const [week, setWeek] = useState('All');
   const [brand, setBrand] = useState('All');
-  const [stats, setStats] = useState({ total: 0, done: 0, pending: 0, percent: 0 });
+  const [stats, setStats] = useState({ assignedTotal: 0, assignedPending: 0, totalDone: 0, adhocDone: 0, percent: 0, efficiency: 0 });
   const [uniqueWeeks, setUniqueWeeks] = useState([]);
   const [uniqueBrands, setUniqueBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rawItems, setRawItems] = useState([]);
+  const [diag, setDiag] = useState(null);
+  const [showDiag, setShowDiag] = useState(false);
 
-  // 1. Fetch RAW data based on user/staff
+  useEffect(() => {
+    const info = localStorage.getItem('sync_diag');
+    if (info) setDiag(JSON.parse(info));
+  }, [lastSync]);
+
+  // Data auto-fetches from useSync on login. Re-render triggered by lastSync change.
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const picId = selectedStaff?.user_id || (user.role === 'staff' ? user.user_id : null);
-        let query;
+        
+        // Fetch ALL data and filter in JS for robustness (handling case/space variations)
+        const allItems = await db.posmData.toArray();
+        let items = allItems;
 
         if (picId) {
-          query = db.posmData.where('pic_id').equals(picId.toString().trim());
-        } else {
-          query = db.posmData; // Admin sees all
+          const pidNorm = String(picId).trim().toLowerCase();
+          const pName = stripAccents(user?.ho_ten || selectedStaff?.ho_ten || '').toLowerCase().trim();
+
+          items = allItems.filter(i => {
+             const mPId = String(i.pic_id || '').trim().toLowerCase();
+             const mPName = stripAccents(i.pic || '').toLowerCase().trim();
+             return (pidNorm && mPId && mPId === pidNorm) || (pName && mPName && mPName === pName);
+          });
         }
 
-        const items = await query.toArray();
         setRawItems(items);
 
-        // Derive unique values for filters
-        const weeks = [...new Set(items.map(i => i.week))].filter(Boolean).sort((a,b) => (parseInt(a.replace(/\D/g,''))||0)-(parseInt(b.replace(/\D/g,''))||0));
+        // Derive unique values for filters (Weeks from ALL items to show missing weeks too)
+        const weeks = [...new Set(allItems.map(i => i.week))].filter(Boolean).sort((a,b) => {
+            const numA = parseInt(String(a).match(/\d+/)?.[0]) || 0;
+            const numB = parseInt(String(b).match(/\d+/)?.[0]) || 0;
+            return numA - numB;
+        });
         const brands = [...new Set(items.map(i => i.brand))].filter(Boolean).sort();
         
         setUniqueWeeks(weeks);
@@ -59,22 +82,29 @@ const Dashboard = () => {
     if (week !== 'All') filtered = filtered.filter(i => i.week === week);
     if (brand !== 'All') filtered = filtered.filter(i => i.brand === brand);
 
-    const total = filtered.length;
-    const done = filtered.filter(i => i.status?.toLowerCase() === 'done').length;
-    const pending = total - done;
+    const assignedFiltered = filtered.filter(i => !i.is_virtual && !String(i.job_code || '').startsWith('NEW_'));
+    const adhocFiltered = filtered.filter(i => i.is_virtual || String(i.job_code || '').startsWith('NEW_'));
+
+    const assignedTotal = assignedFiltered.length;
+    const assignedDone = assignedFiltered.filter(i => i.status?.toLowerCase() === 'done').length;
+    const assignedPending = assignedTotal - assignedDone;
+
+    const adhocDone = adhocFiltered.filter(i => i.status?.toLowerCase() === 'done').length;
+    const totalDone = assignedDone + adhocDone;
     
     // Tỉ lệ hoàn thành: 75 points = 100%
-    const completionRate = Math.min(100, Math.round((done / 75) * 100));
+    const completionRate = Math.min(100, Math.round((totalDone / 75) * 100));
     
-    // Hiệu suất tuyến: % on total assigned
-    const efficiency = total > 0 ? Math.round((done / total) * 100) : 0;
+    // Hiệu suất tuyến: % on total assigned (excluding adhoc)
+    const efficiency = assignedTotal > 0 ? Math.round((assignedDone / assignedTotal) * 100) : 0;
 
     setStats({
-      total,
-      done,
-      pending,
+      assignedTotal,
+      assignedPending,
+      totalDone,
+      adhocDone,
       percent: completionRate,
-      efficiency: efficiency
+      efficiency
     });
   }, [rawItems, week, brand]);
 
@@ -87,6 +117,81 @@ const Dashboard = () => {
 
   return (
     <div className="p-6 space-y-8 animate-fade-in pb-24">
+      {/* Header - sync status only */}
+      <div className="flex items-center justify-end gap-2 mb-4">
+        {syncing && (
+           <span className="text-xs text-indigo-500 font-medium flex items-center gap-1 animate-pulse">
+              <CircleDashed size={14} className="animate-spin" />
+              Đang đồng bộ...
+           </span>
+        )}
+        {lastSync && !syncing && diag?.source === 'MOCK' && (
+          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full animate-pulse">
+            MOCK DATA ACTIVE
+          </span>
+        )}
+        <button 
+          onClick={() => setShowDiag(!showDiag)}
+          className="p-1"
+          title="Diagnostics"
+          style={{ opacity: 0, width: 10, height: 10 }} // Invisible debug toggle
+        >
+            <CircleDashed size={10} />
+          </button>
+        </div>
+
+      {/* Diagnostic Panel */}
+      {showDiag && diag && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8 p-6 bg-slate-900 text-slate-300 rounded-2xl shadow-xl font-mono text-sm overflow-hidden"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-indigo-400 font-bold uppercase tracking-wider">Hệ thống chẩn đoán Sync</h3>
+            <span className={`px-2 py-1 rounded text-xs font-bold ${diag.source === 'LIVE' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+              SOURCE: {diag.source}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p>• Tổng nhiệm vụ: <span className="text-white">{diag.rows_mission}</span></p>
+              <p>• Tổng báo cáo: <span className="text-white">{diag.rows_reports}</span></p>
+              <p>• Đã khớp thành công: <span className="text-white">{diag.matches}</span></p>
+              <div className="mt-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                <p className="text-[10px] text-indigo-400 font-bold uppercase mb-2">Phân bổ theo Tuần (Column AJ)</p>
+                <div className="space-y-1">
+                   {diag.weekly_stats?.map(ws => (
+                     <div key={ws.week} className="flex justify-between text-[11px]">
+                        <span className="text-slate-400">{ws.week}:</span>
+                        <span className="text-white font-bold">{ws.matches} / {ws.total}</span>
+                     </div>
+                   ))}
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-indigo-400 mb-1">Cột được nhận diện (15 đầu):</p>
+              <p className="text-[10px] leading-tight opacity-70 italic">
+                {diag.headers_mission.join(', ')}
+              </p>
+            </div>
+          </div>
+          {diag.unmatched?.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <p className="text-rose-400 mb-1 italic">Mã lỗi không khớp (10 đầu):</p>
+              <p className="text-xs">{diag.unmatched.join(', ')}</p>
+            </div>
+          )}
+          <button 
+            onClick={() => { localStorage.clear(); window.location.reload(); }}
+            className="mt-6 w-full py-2 bg-rose-600/20 text-rose-400 hover:bg-rose-600/40 rounded-lg transition-colors text-xs font-bold uppercase"
+          >
+             Xóa toàn bộ bộ nhớ & Tải lại App
+          </button>
+        </motion.div>
+      )}
+
       {/* Filters */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
@@ -114,10 +219,15 @@ const Dashboard = () => {
       </div>
 
       <section className="grid grid-cols-2 gap-4">
-        <StatCard icon={<LayoutGrid className="text-indigo-600" size={20} />} label="Tổng số điểm" value={stats.total} color="bg-indigo-50" />
-        <StatCard icon={<CheckCircle2 className="text-emerald-600" size={20} />} label="Đã hoàn thành" value={stats.done} color="bg-emerald-50" />
-        <StatCard icon={<CircleDashed className="text-amber-600" size={20} />} label="Cần thực hiện" value={stats.pending} color="bg-amber-50" />
-        <StatCard icon={<TrendingUp className="text-blue-600" size={20} />} label="Hiệu suất tuyến" value={`${stats.efficiency}%`} color="bg-blue-50" />
+        <StatCard icon={<LayoutGrid className="text-indigo-600" size={20} />} label="Điểm phân bổ" value={stats.assignedTotal} color="bg-indigo-50" />
+        <StatCard icon={<CircleDashed className="text-amber-600" size={20} />} label="Cần thực hiện" value={stats.assignedPending} color="bg-amber-50" />
+        
+        <StatCard icon={<CheckCircle2 className="text-emerald-600" size={20} />} label="Tổng hoàn thành" value={stats.totalDone} color="bg-emerald-50" />
+        <StatCard icon={<MapPin className="text-violet-600" size={20} />} label="Điểm đi ngoài danh sách" value={stats.adhocDone} color="bg-violet-50" />
+        
+        <div className="col-span-2">
+            <StatCard icon={<TrendingUp className="text-blue-600" size={20} />} label="Hiệu suất đi tuyến" value={`${stats.efficiency}%`} color="bg-blue-50" />
+        </div>
       </section>
 
       <div className="bg-white p-8 rounded-[2.5rem] shadow-soft flex flex-col items-center justify-center space-y-4 border border-slate-50 relative overflow-hidden">

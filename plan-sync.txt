@@ -1,0 +1,13 @@
+Target: fix useSync.js to correctly group completions by WEEKnum from the Acceptance tab, ensuring W12=62 and W13=75.
+
+Current bug: 
+1. Master Sheet initializes 64 missions as 'Done' in W12.
+2. W13 Reports try to overlay. Because of strict week checks and skipping 'Done' missions, W13 reports that should target those 2 missions are either blocked from matching or remain strictly W12.
+3. Result: W12 stays 64, W13 becomes 73.
+
+Solution:
+In useSync.js:
+- When a report from Acceptance fits a location, we allow it to match ALREADY DONE missions IF there are no pending missions that better fit!
+- We MUST set the matched mission's `week` to the report's `WEEKnum`! 
+- By setting `week: reportWeekString || m.week`, the 2 'Done' missions that were initially W12 will be re-assigned to W13!
+- Result: W12 drops to 62. W13 raises to 75. 

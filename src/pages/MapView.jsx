@@ -37,14 +37,14 @@ const MapView = () => {
   // Map checkins for quick lookup
   const visitedSet = useMemo(() => new Set(checkins.map(c => c.job_code)), [checkins]);
 
-  // Current Week logic (W14+)
+  // Current Week logic (Latest Week W+)
   const latestWeek = useMemo(() => {
     const weeks = [...new Set(allItems.map(i => i.week).filter(Boolean))];
     const filtered = weeks.filter(w => {
-      const n = parseInt(w.replace(/\D/g, ''), 10) || 0;
-      return n >= 14 && n < 50;
+      const n = parseInt(String(w).replace(/\D/g, ''), 10) || 0;
+      return n > 0;
     });
-    return filtered.sort((a,b) => (parseInt(a.replace(/\D/g,''))||0)-(parseInt(b.replace(/\D/g,''))||0)).slice(-1)[0] || '';
+    return filtered.sort((a,b) => (parseInt(String(a).replace(/\D/g,''))||0)-(parseInt(String(b).replace(/\D/g,''))||0)).slice(-1)[0] || '';
   }, [allItems]);
 
   // Group by District
