@@ -435,29 +435,23 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                         initial={{ scale: 0.8, rotate: -5 }}
                         animate={{ scale: 1, rotate: 0 }}
                         key={idx}
-                        className="relative w-24 h-24 rounded-3xl overflow-hidden shadow-lg border-2 border-white ring-1 ring-slate-100 cursor-pointer"
+                        className="relative w-24 h-24 rounded-3xl overflow-hidden shadow-lg border-2 border-white ring-2 ring-indigo-100"
                       >
-                        {/* Tap to preview */}
+                        {/* Tap image → open lightbox preview */}
                         <img
                           src={img.preview}
                           alt="preview"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover cursor-pointer active:opacity-80 transition-opacity"
                           onClick={() => setPreviewImage(img.preview)}
                         />
-                        {/* Hold / long-press area: delete button shows on hover */}
+                        {/* Corner delete button (does NOT block image tap) */}
                         <button
                           type="button"
-                          onClick={() => removeImage(idx)}
-                          className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center text-white transition-opacity backdrop-blur-[2px] rounded-3xl"
-                        >
-                          <X size={20} />
-                        </button>
-                        {/* Small delete indicator (always visible) */}
-                        <div className="absolute top-1 right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center shadow-md"
+                          className="absolute top-1.5 right-1.5 w-6 h-6 bg-rose-500 hover:bg-rose-600 rounded-full flex items-center justify-center shadow-md transition-colors active:scale-90 z-10"
                           onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
                         >
-                          <X size={10} className="text-white" />
-                        </div>
+                          <X size={11} className="text-white" />
+                        </button>
                       </motion.div>
                     ))}
                     {images.length < 2 && (
