@@ -13,6 +13,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Scroll to top when opening (extra safety)
   useEffect(() => {
@@ -253,7 +254,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
     }
   };
 
-  return createPortal(
+  const modal = createPortal(
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 backdrop-blur-md p-0 sm:p-4 overflow-hidden">
       <motion.div
         initial={{ y: '100%', opacity: 0 }}
@@ -434,16 +435,29 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                         initial={{ scale: 0.8, rotate: -5 }}
                         animate={{ scale: 1, rotate: 0 }}
                         key={idx}
-                        className="relative w-24 h-24 rounded-3xl overflow-hidden shadow-lg border-2 border-white ring-1 ring-slate-100"
+                        className="relative w-24 h-24 rounded-3xl overflow-hidden shadow-lg border-2 border-white ring-1 ring-slate-100 cursor-pointer"
                       >
-                        <img src={img.preview} alt="preview" className="w-full h-full object-cover" />
+                        {/* Tap to preview */}
+                        <img
+                          src={img.preview}
+                          alt="preview"
+                          className="w-full h-full object-cover"
+                          onClick={() => setPreviewImage(img.preview)}
+                        />
+                        {/* Hold / long-press area: delete button shows on hover */}
                         <button
                           type="button"
                           onClick={() => removeImage(idx)}
-                          className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center text-white transition-opacity backdrop-blur-[2px]"
+                          className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 flex items-center justify-center text-white transition-opacity backdrop-blur-[2px] rounded-3xl"
                         >
                           <X size={20} />
                         </button>
+                        {/* Small delete indicator (always visible) */}
+                        <div className="absolute top-1 right-1 w-5 h-5 bg-rose-500 rounded-full flex items-center justify-center shadow-md"
+                          onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                        >
+                          <X size={10} className="text-white" />
+                        </div>
                       </motion.div>
                     ))}
                     {images.length < 2 && (
@@ -505,6 +519,47 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
       </motion.div>
     </div>,
     document.body
+  );
+
+  return (
+    <>
+      {modal}
+      {/* Image Lightbox Portal */}
+      {previewImage && createPortal(
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          {/* Close button */}
+          <button
+            className="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white border border-white/20 transition-all active:scale-90"
+            onClick={() => setPreviewImage(null)}
+          >
+            <X size={22} />
+          </button>
+
+          {/* Full image */}
+          <motion.img
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 200 }}
+            src={previewImage}
+            alt="Preview"
+            className="max-w-full max-h-[85vh] object-contain rounded-3xl shadow-2xl ring-1 ring-white/10"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Label */}
+          <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-black text-white/40 uppercase tracking-widest">
+            Bấm ngoài để đóng
+          </p>
+        </motion.div>,
+        document.body
+      )}
+    </>
   );
 };
 
