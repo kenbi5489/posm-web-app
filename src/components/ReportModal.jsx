@@ -58,8 +58,8 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             let width = img.width;
             let height = img.height;
 
-            // Downscale image logically to save bandwidth
-            const MAX_DIMENSION = 1200;
+            // Downscale image to save bandwidth - aggressive compression for speed
+            const MAX_DIMENSION = 900;
             if (width > height && width > MAX_DIMENSION) {
               height *= MAX_DIMENSION / width;
               width = MAX_DIMENSION;
@@ -73,8 +73,8 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
 
-            // Compress to 70% quality JPEG
-            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            // Compress to 60% quality JPEG (smaller = faster upload)
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
 
             resolve({
               file,
@@ -216,29 +216,36 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         city: item.city || "N/A"
       };
 
-      console.log("SENDING ORDERED PAYLOAD TO GAS:", payload);
-
-      const response = await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const result = await response.json();
-      console.log("GAS RESPONSE:", result);
-
-      if (result.status === 'success' || result.status === 'done' || result.success) {
-        setSuccess(true);
-        if (onSuccess) onSuccess({ ...item, status: 'Done', posm_status: mappedPosmStatus });
-        setTimeout(() => onClose(), 2000);
-      } else {
-        setError(result.message || "Script báo thiếu thông tin hoặc sai cấu trúc.");
+      // ── OPTIMISTIC UPDATE ─────────────────────────────────────────────
+      // 1. Update local DB immediately (before waiting for GAS)
+      //    This makes the dashboard update instantly.
+      if (!isAdHoc) {
+        try {
+          await db.posmData.where('job_code').equals(item.job_code || '').modify({
+            status: 'Done',
+            posm_status: mappedPosmStatus,
+          });
+        } catch (dbErr) {
+          console.warn('[Optimistic] DB update failed:', dbErr);
+        }
       }
+
+      // 2. Show success immediately & notify parent
+      setSuccess(true);
+      if (onSuccess) onSuccess({ ...item, status: 'Done', posm_status: mappedPosmStatus });
+      setTimeout(() => onClose(), 1500);
+
+      // 3. Send to GAS in background (fire & forget) - no need to await
+      fetch(GAS_WEB_APP_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      }).catch(err => console.warn('[GAS Background] Send failed:', err));
+      // ─────────────────────────────────────────────────────────────────
+
     } catch (err) {
       console.error("Submit error details:", err);
-      // If it's a validation error (from our throw), use its message. Otherwise generic.
       const isValidationError = ["Thiếu hình ảnh nghiệm thu", "Thiếu ghi chú", "Bạn vui lòng kiểm tra lại thông tin"].includes(err.message);
       setError(isValidationError ? err.message : "Lỗi kết nối hoặc Script chưa được Cấu hình đúng (Anyone).");
     } finally {

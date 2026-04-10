@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Navigation, ChevronRight, LayoutGrid, Map as MapIcon, TriangleAlert, Eye, FileEdit, Plus } from 'lucide-react';
 import { getCurrentWeekLabel } from '../utils/weekUtils';
+import { Link } from 'react-router-dom';
 
 import ReportModal from '../components/ReportModal';
 
