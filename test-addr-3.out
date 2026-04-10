@@ -1,0 +1,12 @@
+Original: Tầng GF & 2F, TTTM Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TPHCM
+Cleaned:  & 2F, Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TPHCM
+X -> [& 2F, Crescent Mall, 101 Tôn Dật Tiên, Phường Tân Mỹ, TPHCM] : NOT FOUND
+Original: L1-12B, Tầng 1, TTTM Parc Mall, 547-549 Tạ Quang Bửu, P.4, Q.8, TP.Hồ Chí Minh
+Cleaned:  -12B,  Parc Mall, 547-549 Tạ Quang Bửu, P.4, Q.8, TP.Hồ Chí Minh
+X -> [-12B,  Parc Mall, 547-549 Tạ Quang Bửu, P.4, Q.8, TP.Hồ Chí Minh] : NOT FOUND
+Original: Lô 02-39, Trung tâm thương mại SC Vivo City Nguyễn Văn Linh, 1058 Nguyễn Văn Linh, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+Cleaned:  SC Vivo City Nguyễn Văn Linh, 1058 Nguyễn Văn Linh, P.Tân Phong, Q.7, TP.Hồ Chí Minh
+X -> [SC Vivo City Nguyễn Văn Linh, 1058 Nguyễn Văn Linh, P.Tân Phong, Q.7, TP.Hồ Chí Minh] : NOT FOUND
+Original: F3-32 Tầng 3 TTTM The Crescent Mall  - 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+Cleaned:  The Crescent Mall  - 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh
+X -> [The Crescent Mall  - 101 Tôn Dật Tiên, P.Tân Phú, Q.7, TP.Hồ Chí Minh] : NOT FOUND

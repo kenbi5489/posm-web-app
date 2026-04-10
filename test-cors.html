@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <script>
+    const apiKey = "AIzaSyAeTa1gk8_AoN56UX9ngDGJ93Tbj2eABF8";
+    fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=hanoi&key=${apiKey}`)
+      .then(r => r.json())
+      .then(data => console.log("SUCCESS", data))
+      .catch(err => console.log("ERROR", err));
+  </script>
+</body>
+</html>

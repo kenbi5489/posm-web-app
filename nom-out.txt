@@ -1,0 +1,4 @@
+Fetching: https://nominatim.openstreetmap.org/search?q=&format=json&limit=1&countrycodes=vn
+NOT FOUND
+Fetching: https://nominatim.openstreetmap.org/search?q=Vi%E1%BB%87t%20Nam&format=json&limit=1&countrycodes=vn
+Result: 15.9266657 107.9650855 Việt Nam

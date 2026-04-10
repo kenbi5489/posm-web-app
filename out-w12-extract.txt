@@ -1,0 +1,20 @@
+Address: 58C1 Cao Thắng, Phường 5, Quận 3, Hồ Chí Minh
+Extracted: Ward=[Phường 5] District=[Quận 3]
+Query => Phường 5 Quận 3 Hồ Chí Minh
+---
+Address: 161 Khánh Hội, P.3, Q.4, TP.Hồ Chí Minh
+Extracted: Ward=[Phường 3] District=[Quận 4]
+Query => Phường 3 Quận 4 Hồ Chí Minh
+---
+Address: 126 Hồng Bàng, , 12, Quận 5, Hồ Chí Minh
+Extracted: Ward=[] District=[Quận 5]
+Query =>  Quận 5 Hồ Chí Minh
+---
+Address: 1058 Đại Lộ Nguyễn Văn Linh, Tân Phong, Quận 7, Hồ Chí Minh
+Extracted: Ward=[] District=[Quận 7]
+Query =>  Quận 7 Hồ Chí Minh
+---
+Address: 200A Lý Tự Trọng, Phường Bến Thành, Quận 1, TP.HCM
+Extracted: Ward=[Phường B] District=[Quận 1]
+Query => Phường B Quận 1 Hồ Chí Minh
+---

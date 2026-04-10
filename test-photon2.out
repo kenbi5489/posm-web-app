@@ -1,0 +1,10 @@
+Fetching Photon: https://photon.komoot.io/api/?q=T%C3%A2n%20Ph%C3%BA%20H%E1%BB%93%20Ch%C3%AD%20Minh&limit=1
+Photon Result: [ 106.6384144, 10.7761892 ]
+Fetching Photon: https://photon.komoot.io/api/?q=T%C3%A2n%20Ph%C3%BA%2C%20Th%C3%A0nh%20ph%E1%BB%91%20H%E1%BB%93%20Ch%C3%AD%20Minh&limit=1
+Photon Result: [ 106.6384144, 10.7761892 ]
+Fetching Nominatim: https://nominatim.openstreetmap.org/search?q=30%20B%E1%BB%9D%20Bao%20T%C3%A2n%20Th%E1%BA%AFng%20S%C6%A1n%20K%E1%BB%B3%20T%C3%A2n%20Ph%C3%BA%20H%E1%BB%93%20Ch%C3%AD%20Minh&format=json&limit=1
+Nominatim: NOT FOUND
+Fetching Nominatim: https://nominatim.openstreetmap.org/search?q=S%C6%A1n%20K%E1%BB%B3%20T%C3%A2n%20Ph%C3%BA%20H%E1%BB%93%20Ch%C3%AD%20Minh&format=json&limit=1
+Nominatim Result: [ '106.6079566', '10.8089780' ]
+Fetching Nominatim: https://nominatim.openstreetmap.org/search?q=T%C3%A2n%20Ph%C3%BA%2C%20H%E1%BB%93%20Ch%C3%AD%20Minh&format=json&limit=1
+Nominatim Result: [ '106.6384144', '10.7761892' ]
