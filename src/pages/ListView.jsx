@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 const stripAccents = (s) => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D') || '';
 
 const ListView = () => {
-  const { user, selectedStaff } = useAuth();
+  const { user, selectedStaff, lastSync } = useAuth();
   const [allItems, setAllItems] = useState([]);
   const [listItems, setListItems] = useState([]);
   const [acceptanceMap, setAcceptanceMap] = useState(new Map());
@@ -69,7 +69,7 @@ const ListView = () => {
       }
     };
     loadData();
-  }, [selectedStaff, user]);
+  }, [selectedStaff, user, lastSync]);
 
   const { filteredItems, uniqueWeeks, uniqueBrands } = useMemo(() => {
     // 1. Derive globals from ALL items (ensures W1-W9 show up)
