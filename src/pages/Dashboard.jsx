@@ -215,80 +215,18 @@ const Dashboard = () => {
           </div>
           <Link 
             to="/list"
-            onClick={() => sessionStorage.setItem('lv_status', 'pending')}
+            onClick={() => {
+              sessionStorage.setItem('lv_status', 'pending');
+              sessionStorage.setItem('lv_week', 'All');
+              sessionStorage.setItem('lv_search', '');
+            }}
             className="w-full bg-white text-amber-600 font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all border border-amber-100"
           >
             Xem danh sách ngay <TrendingUp size={14} />
           </Link>
         </motion.div>
       )}
-      {/* Sync Status Bar - always visible, expandable */}
-      {diag && (
-        <div className="space-y-2 mb-4">
-          <button
-            onClick={() => setShowDiag(!showDiag)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-xs font-bold border ${
-              diag.source === 'LIVE'
-                ? 'bg-emerald-50 border-emerald-100 text-emerald-700'
-                : 'bg-rose-50 border-rose-100 text-rose-700'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${diag.source === 'LIVE' ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
-              <span className="uppercase tracking-widest text-[10px] font-black">
-                {diag.source === 'LIVE'
-                  ? `LIVE · ${diag.rows_mission?.toLocaleString()} dòng`
-                  : 'MOCK DATA · Kết nối thất bại'}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              {syncing && <span className="opacity-60 animate-pulse">Đang sync...</span>}
-              <button
-                onClick={(e) => { e.stopPropagation(); clearAndResync(); }}
-                disabled={syncing}
-                className="text-[10px] font-black uppercase tracking-wider opacity-70 hover:opacity-100 transition-opacity disabled:opacity-30"
-              >
-                Sync lại
-              </button>
-              <span className="text-[10px] opacity-40">{showDiag ? '▲' : '▼'}</span>
-            </div>
-          </button>
 
-          {showDiag && (
-            <div className="bg-slate-900 text-slate-300 p-4 rounded-2xl font-mono text-[10px] space-y-3">
-              <div>
-                <p className="text-indigo-400 font-bold uppercase mb-1">Phân bổ theo Tuần</p>
-                {diag.weekly_stats?.length > 0 ? (
-                  <div className="space-y-1">
-                    {diag.weekly_stats.map(ws => (
-                      <div key={ws.week} className="flex justify-between">
-                        <span className="text-slate-400">{ws.week}:</span>
-                        <span className="text-white font-bold">{ws.total} điểm</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : <p className="text-rose-400">Không có tuần nào → Cột tuần không khớp!</p>}
-              </div>
-              <div>
-                <p className="text-indigo-400 font-bold uppercase mb-1">Cột nhận diện được</p>
-                <p className="text-slate-400 italic leading-relaxed">{diag.headers_mission?.join(', ')}</p>
-              </div>
-              <button
-                onClick={() => { localStorage.clear(); window.location.reload(); }}
-                className="w-full py-2 bg-rose-600/20 text-rose-400 hover:bg-rose-600/40 rounded-lg transition-colors text-[10px] font-bold uppercase"
-              >
-                Xóa toàn bộ bộ nhớ & Tải lại App
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {!diag && syncing && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold border mb-4 bg-indigo-50 border-indigo-100 text-indigo-600">
-          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-ping" />
-          <span className="uppercase tracking-widest text-[10px] font-black animate-pulse">Đang tải dữ liệu lần đầu...</span>
-        </div>
-      )}
 
       {/* Diagnostic Panel */}
       {showDiag && diag && (

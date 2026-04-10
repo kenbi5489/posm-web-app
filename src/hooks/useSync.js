@@ -313,7 +313,50 @@ export const useSync = (user) => {
       }));
 
       // Step 5: Write to local DB
-      const transformed = Array.from(assignmentsMap.values());
+      let transformed = Array.from(assignmentsMap.values());
+
+      // ── PERFORMANCE OPTIMIZATION ──────────────────────────────────────────
+      // Staff users: only keep the 2 most recent weeks to reduce DB size and
+      // improve load times.
+      // Uses date_assigned (not week number) to correctly handle year rollovers
+      // e.g., W52 (Jan 2025) is OLDER than W15 (Apr 2026)
+      // Admin users: keep full history for oversight and analysis.
+      if (user.role === 'staff') {
+        // Find the max actual date per week label
+        const weekMaxDate = new Map();
+        transformed.forEach(item => {
+          const weekKey = item.week;
+          const dateStr = item.date_assigned || '';
+          let ts = 0;
+          if (dateStr) {
+            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
+            if (parts.length >= 3) {
+              // DD/MM/YYYY
+              const [d, m, y] = [parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2])];
+              if (!isNaN(d) && !isNaN(m) && !isNaN(y) && y > 2000) {
+                ts = new Date(y, m - 1, d).getTime();
+              }
+            }
+          }
+          if (!weekMaxDate.has(weekKey) || ts > weekMaxDate.get(weekKey)) {
+            weekMaxDate.set(weekKey, ts);
+          }
+        });
+
+        // Sort by actual date descending → pick top 2 truly most recent weeks
+        const latestTwoWeeks = new Set(
+          [...weekMaxDate.entries()]
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 2)
+            .map(([week]) => week)
+        );
+
+        transformed = transformed.filter(i => latestTwoWeeks.has(i.week));
+
+        console.log(`[Sync] Staff mode: keeping ${[...latestTwoWeeks].join(', ')} → ${transformed.length} rows`);
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       await db.transaction('rw', [db.posmData, db.adhocPoints], async () => {
         await db.posmData.clear();
         await db.posmData.bulkPut(transformed);

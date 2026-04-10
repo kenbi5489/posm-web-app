@@ -3,12 +3,13 @@ import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { Search, Eye, Calendar, LayoutGrid, CheckCircle, Image as ImageIcon, MapPin, Hash, ExternalLink, Camera, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 const stripAccents = (s) => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D') || '';
 
 const ListView = () => {
   const { user, selectedStaff, lastSync } = useAuth();
+  const location = useLocation();
   const [allItems, setAllItems] = useState([]);
   const [listItems, setListItems] = useState([]);
   const [acceptanceMap, setAcceptanceMap] = useState(new Map());
@@ -18,6 +19,14 @@ const ListView = () => {
   const [displayCount, setDisplayCount] = useState(() => parseInt(sessionStorage.getItem('lv_count')) || 50);
   const [statusTab, setStatusTab] = useState(() => sessionStorage.getItem('lv_status') || 'pending');
   const [isLoading, setIsLoading] = useState(true);
+
+  // Re-sync filters from sessionStorage whenever navigating to this page
+  // This handles the case where ListView is already mounted (not re-mounted)
+  useEffect(() => {
+    setStatusTab(sessionStorage.getItem('lv_status') || 'pending');
+    setWeek(sessionStorage.getItem('lv_week') || 'All');
+    setSearch(sessionStorage.getItem('lv_search') || '');
+  }, [location.key]);
 
   // Persistence
   useEffect(() => {
