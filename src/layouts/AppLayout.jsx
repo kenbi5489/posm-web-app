@@ -58,20 +58,38 @@ const AppLayout = () => {
           staffName: user?.ho_ten || "Unknown"
         });
 
-        // 3. AUTOMATICALLY TRIGGER DOWNLOAD (SAVE TO DEVICE)
-        const link = document.createElement('a');
-        link.href = watermarked;
-        link.download = `timemark_${Date.now()}.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // 3. TRIGGER SAVE/SHARE LOGIC
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-        // Show a brief splash of the result then auto-close
-        setCapturedImage(watermarked);
+        if (isIOS && navigator.share) {
+          try {
+            const blob = await (await fetch(watermarked)).blob();
+            const file = new File([blob], `timemark_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            
+            // Share allows the user to select "Save Image" directly to their Gallery
+            await navigator.share({
+              files: [file],
+            });
+            // On iOS, we don't auto-close immediately because the share sheet is open
+            setCapturedImage(watermarked);
+          } catch (err) {
+            console.warn('[iOS Share] Failed or cancelled:', err);
+          }
+        } else {
+          // Standard download (works well on Android/Desktop)
+          const link = document.createElement('a');
+          link.href = watermarked;
+          link.download = `timemark_${Date.now()}.jpg`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Show result briefly then auto-close
+          setCapturedImage(watermarked);
+          setTimeout(() => setCapturedImage(null), 2000);
+        }
+
         setIsProcessing(false);
-        
-        // Auto-close preview after 2 seconds to show user the result was saved
-        setTimeout(() => setCapturedImage(null), 2000);
       };
       reader.readAsDataURL(file);
     } catch (error) {
