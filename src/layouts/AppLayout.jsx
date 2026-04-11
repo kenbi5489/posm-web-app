@@ -57,8 +57,21 @@ const AppLayout = () => {
           address: currentAddress,
           staffName: user?.ho_ten || "Unknown"
         });
+
+        // 3. AUTOMATICALLY TRIGGER DOWNLOAD (SAVE TO DEVICE)
+        const link = document.createElement('a');
+        link.href = watermarked;
+        link.download = `timemark_${Date.now()}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Show a brief splash of the result then auto-close
         setCapturedImage(watermarked);
         setIsProcessing(false);
+        
+        // Auto-close preview after 2 seconds to show user the result was saved
+        setTimeout(() => setCapturedImage(null), 2000);
       };
       reader.readAsDataURL(file);
     } catch (error) {

@@ -11,8 +11,8 @@ import { getCurrentWeekLabel } from '../utils/weekUtils';
 const stripAccents = (s) => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D') || '';
 
 const Dashboard = () => {
-  const { user, selectedStaff } = useAuth();
-  const { syncing, lastSync, clearAndResync } = useSync(user);
+  const { user, selectedStaff, lastSync, localRefreshTick } = useAuth();
+  const { syncing, pullData, clearAndResync, pullAcceptanceOnly } = useSync(user);
   const [week, setWeek] = useState('All');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [brand, setBrand] = useState('All');
@@ -123,7 +123,7 @@ const Dashboard = () => {
       }
     };
     fetchData();
-  }, [lastSync, selectedStaff, user]);
+  }, [localRefreshTick, selectedStaff, user]);
 
   // 2. Calculate Stats based on filters
   useEffect(() => {
@@ -370,7 +370,12 @@ const Dashboard = () => {
           onClose={() => setIsReportModalOpen(false)} 
           item={{ isAdHoc: true }} // Force ad-hoc mode logically
           user={user}
-          onSuccess={() => { clearAndResync(); setIsReportModalOpen(false); }} 
+          onSuccess={() => {
+          setIsReportModalOpen(false);
+          // Schedule a lightweight acceptance-only sync after 15s
+          // (gives GAS time to write to Sheet, then updates DB without a full wipe+reload)
+          setTimeout(() => pullAcceptanceOnly(), 15000);
+        }} 
         />
       )}
     </div>

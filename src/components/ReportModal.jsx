@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle, AlertCircle, Loader2, Image as ImageIcon, MessageSquare, Info, MapPin, Tag, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,6 +11,7 @@ const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx-HzDy5E7mhZPy
 
 const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
   const isAdHoc = !!(item?.isAdHoc);
+  const { triggerLocalRefresh } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -39,8 +41,6 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
 
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
-
-  if (!isOpen) return null;
 
   const handleFileChange = async (e) => {
     const files = Array.from(e.target.files);
@@ -152,6 +152,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             submitted_at: new Date().toISOString(),
           });
           console.log('[AdHoc] Saved to local DB, week:', weekLabel);
+          triggerLocalRefresh(); // Notify Dashboard/ListView to re-render immediately
         } catch (dbErr) {
           console.warn('[AdHoc] Failed to save to local DB:', dbErr);
         }
@@ -226,6 +227,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             status: 'Done',
             posm_status: mappedPosmStatus,
           });
+          triggerLocalRefresh(); // Notify Dashboard/ListView to re-render immediately
         } catch (dbErr) {
           console.warn('[Optimistic] DB update failed:', dbErr);
         }

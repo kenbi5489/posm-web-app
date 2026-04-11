@@ -9,7 +9,7 @@ import ReportModal from '../components/ReportModal';
 const LocationDetail = () => {
   const { jobCode, brand } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, triggerLocalRefresh } = useAuth();
   const [item, setItem] = useState(null);
   const [acceptance, setAcceptance] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -45,6 +45,10 @@ const LocationDetail = () => {
       timestamp: Date.now()
     });
     setItem(updatedItem);
+    // Notify dashboard to re-fetch from IndexedDB immediately
+    triggerLocalRefresh();
+    // Navigate to dashboard after 2s (lets the modal success animation complete first)
+    setTimeout(() => navigate('/'), 2000);
   };
 
   const handleIncomplete = async () => {

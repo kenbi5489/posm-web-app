@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { fetchUsers } from '../services/api';
 import { db } from '../services/db';
 
@@ -9,6 +9,9 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [lastSync, setLastSync] = useState(null);
+  const [localRefreshTick, setLocalRefreshTick] = useState(0);
+  // Call this right after any optimistic IndexedDB write to trigger instant UI refresh
+  const triggerLocalRefresh = useCallback(() => setLocalRefreshTick(t => t + 1), []);
 
   useEffect(() => {
     try {
@@ -87,7 +90,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, selectedStaff, selectStaff, lastSync, setLastSync }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, selectedStaff, selectStaff, lastSync, setLastSync, localRefreshTick, triggerLocalRefresh }}>
       {children}
     </AuthContext.Provider>
   );

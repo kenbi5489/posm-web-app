@@ -5,7 +5,44 @@ import { useAuth } from '../context/AuthContext';
 import { getCustomWeekNumber } from '../utils/weekUtils';
 
 let syncInProgress = false;
-const SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const FULL_SYNC_INTERVAL_MS = 20 * 60 * 1000;       // 20 min — mission data rarely changes
+const ACCEPTANCE_SYNC_INTERVAL_MS = 3 * 60 * 1000; // 3 min  — catches new reports quickly
+
+// ── Module-level pure helpers (shared by pullData & pullAcceptanceOnly) ─────
+const normalizeStr = (str) => str ? str.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '') : '';
+const stripAccents = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+const cleanKey = (str) => {
+  if (!str) return '';
+  return str.toString().replace(/[^a-zA-Z0-9_]/g, '').toUpperCase().trim();
+};
+const getHeaderMap = (row) => {
+  const map = new Map();
+  Object.keys(row).forEach(k => {
+    const trimmedKey = k.toString().trim();
+    map.set(normalizeStr(trimmedKey).toLowerCase(), k);
+    map.set(stripAccents(trimmedKey), k);
+  });
+  return map;
+};
+const getValFast = (row, patterns, hMap) => {
+  for (const p of patterns) {
+    const normP = normalizeStr(p.trim()).toLowerCase();
+    const stripP = stripAccents(p.trim());
+    const key = hMap.get(normP) || hMap.get(stripP);
+    if (key !== undefined) {
+      const val = (row[key] ?? '').toString().trim();
+      if (val !== '') return val;
+    }
+  }
+  return '';
+};
+const normStatus = (s) => {
+  if (!s) return 'On-going';
+  const clean = s.toString().toLowerCase().trim();
+  if (['done', 'ho\u00e0n th\u00e0nh', 'hoan thanh', '\u0111\u00e3 xong', 'da xong', 'ok', '\u0111\u1ea1t', 'dat', 'xong'].includes(clean)) return 'Done';
+  return 'On-going';
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const useSync = (user) => {
   const [syncing, setSyncing] = useState(false);
@@ -24,40 +61,7 @@ export const useSync = (user) => {
       const { data: rawData, isMock: isPosmMock } = posmResponse;
       const { data: rawAcc, isMock: isAccMock } = accResponse;
 
-      const normalizeStr = (str) => str ? str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "") : "";
-      const stripAccents = (s) => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-
-      const cleanKey = (str) => {
-        if (!str) return '';
-        // Allow underscores to preserve prefixes like NEW_
-        return str.toString().replace(/[^a-zA-Z0-9_]/g, '').toUpperCase().trim();
-      };
-
-      const getHeaderMap = (row) => {
-        const map = new Map();
-        Object.keys(row).forEach(k => {
-          const originalKey = k;
-          const trimmedKey = k.toString().trim();
-          map.set(normalizeStr(trimmedKey).toLowerCase(), originalKey);
-          map.set(stripAccents(trimmedKey), originalKey);
-        });
-        return map;
-      };
-
       const headerMapDataRaw = rawData.length > 0 ? getHeaderMap(rawData[0]) : new Map();
-
-      const getValFast = (row, patterns, hMap) => {
-        for (const p of patterns) {
-          const normP = normalizeStr(p.trim()).toLowerCase();
-          const stripP = stripAccents(p.trim());
-          const key = hMap.get(normP) || hMap.get(stripP);
-          if (key !== undefined) {
-            const val = (row[key] ?? '').toString().trim();
-            if (val !== '') return val;
-          }
-        }
-        return '';
-      };
 
       // 1. DETERMINE WEEKS & MONTHS (Full History)
       const weekToMonth = new Map();
@@ -69,7 +73,6 @@ export const useSync = (user) => {
             const dateStr = getValFast(row, ['Ngày chia', 'Ngay chia', 'Ngày', 'Date'], headerMapDataRaw);
             let monthAccurate = null;
             if (dateStr) {
-              // Handle DD/MM/YYYY
               const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
               if (parts.length >= 3) {
                 const monthRaw = parseInt(parts[1], 10);
@@ -81,7 +84,6 @@ export const useSync = (user) => {
             if (monthAccurate) {
               weekToMonth.set(num, monthAccurate);
             } else {
-              // Approximate fallback
               const approxMonth = Math.min(12, Math.floor((num - 1) / 4.34) + 1);
               weekToMonth.set(num, approxMonth);
             }
@@ -95,26 +97,11 @@ export const useSync = (user) => {
         return month ? `W${num} (T.${month})` : `W${num}`;
       };
 
-      // 2. DATA PREPARATION (No .slice(0, 5) - Full History)
       const data = rawData;
       const rawAcceptance = rawAcc;
 
-      console.log('ACCEPTANCE SAMPLE ROW:', rawAcceptance[0]);
-      const debugNew = rawAcceptance.filter(r => {
-        const val = (r['Mã CH'] || r['Mã cv'] || r['job_code'] || '').toString().toUpperCase();
-        return val.includes('NEW_');
-      });
-      console.log('RAW ACCEPTANCE NEW_ ROWS:', debugNew);
-
       const headerMapData = data.length > 0 ? getHeaderMap(data[0]) : new Map();
       const headerMapAcc = rawAcc.length > 0 ? getHeaderMap(rawAcc[0]) : new Map();
-
-      const normStatus = (s) => {
-        if (!s) return 'On-going';
-        const clean = s.toString().toLowerCase().trim();
-        if (['done', 'hoàn thành', 'hoan thanh', 'đã xong', 'da xong', 'ok', 'đạt', 'dat', 'xong'].includes(clean)) return 'Done';
-        return 'On-going';
-      };
 
       const assignmentsMap = new Map();
       const jobCodeToIndex = new Map();
@@ -402,13 +389,76 @@ export const useSync = (user) => {
     }
   }, [user, setLastSync]);
 
-  // Auto-sync when user logs in and every 15 minutes
-  useEffect(() => {
+  // ── Lightweight acceptance-only sync ─────────────────────────────────────
+  // Fetches only the acceptance CSV (~small) and overlays updates onto existing
+  // DB records, WITHOUT clearing the DB or re-fetching the 4000+ row mission CSV.
+  // Used after report submit (15s delay) and on a 3-minute polling interval.
+  const pullAcceptanceOnly = useCallback(async () => {
     if (!user) return;
-    pullData();
-    const interval = setInterval(pullData, SYNC_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [user?.user_id, pullData]);
+    try {
+      const { data: rawAcc, isMock } = await fetchAcceptanceData();
+      if (isMock || !rawAcc || rawAcc.length === 0) return;
+
+      const headerMapAcc = getHeaderMap(rawAcc[0]);
+
+      // Use existing DB records as base — no CSV re-fetch needed
+      const existing = await db.posmData.toArray();
+      const jobCodeIndex = new Map();
+      existing.forEach(r => {
+        if (!r.job_code) return;
+        if (!jobCodeIndex.has(r.job_code)) jobCodeIndex.set(r.job_code, []);
+        jobCodeIndex.get(r.job_code).push(r);
+      });
+
+      const updates = [];
+      rawAcc.forEach(row => {
+        const jobCodeRaw = getValFast(row, [
+          'Mã cv (theo mã trong file chia. VD: QC1)',
+          'Cú pháp check In', 'Mã CH', 'Ma CH', 'Mã cv', 'job_code', 'jobCode'
+        ], headerMapAcc);
+        const jobCode = cleanKey(jobCodeRaw);
+        if (!jobCode) return;
+        
+        const upperJobCode = jobCode.toUpperCase();
+        if (!upperJobCode.includes('QC') && !upperJobCode.includes('NEW_')) return;
+
+        const picName = (getValFast(row, ['Tên nhân viên', 'Họ tên nhân sự', 'Nhân viên', 'Người báo cáo', 'Nhan vien'], headerMapAcc) || '').toString().trim();
+        const newImage1       = getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc);
+        const newImage2       = getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc);
+        const completionDate  = getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '';
+        const posmStatus      = getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '';
+        const accNote         = getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc);
+
+        const records  = jobCodeIndex.get(jobCode) || [];
+        const target   = records.find(r => r.status !== 'Done') || records[0];
+        if (!target) return;
+
+        // Skip records that haven't changed (avoid unnecessary writes)
+        if (target.status === 'Done' && target.image1 === newImage1 && target.image1) return;
+
+        updates.push({
+          ...target,
+          status: 'Done',
+          completion_date: completionDate,
+          posm_status: posmStatus || target.posm_status || '',
+          image1: newImage1,
+          image2: newImage2,
+          acceptance_note: accNote,
+          reported_by: picName,
+        });
+      });
+
+      if (updates.length > 0) {
+        await db.posmData.bulkPut(updates);
+        console.log(`[AcceptanceSync] ✅ ${updates.length} records updated`);
+        setLastSync(new Date()); // Trigger UI refresh
+      } else {
+        console.log('[AcceptanceSync] No new changes');
+      }
+    } catch (err) {
+      console.error('[AcceptanceSync] Failed:', err);
+    }
+  }, [user, setLastSync]);
 
   const clearAndResync = useCallback(async () => {
     setSyncing(true);
@@ -422,5 +472,14 @@ export const useSync = (user) => {
     }
   }, [pullData]);
 
-  return { syncing, pullData, clearAndResync };
+  // Auto-sync: full sync on login (every 20 min), acceptance-only every 3 min
+  useEffect(() => {
+    if (!user) return;
+    pullData();
+    const fullInterval = setInterval(pullData, FULL_SYNC_INTERVAL_MS);
+    const accInterval  = setInterval(pullAcceptanceOnly, ACCEPTANCE_SYNC_INTERVAL_MS);
+    return () => { clearInterval(fullInterval); clearInterval(accInterval); };
+  }, [user?.user_id, pullData, pullAcceptanceOnly]);
+
+  return { syncing, pullData, clearAndResync, pullAcceptanceOnly };
 };
