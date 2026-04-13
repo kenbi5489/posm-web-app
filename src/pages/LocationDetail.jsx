@@ -124,7 +124,19 @@ const LocationDetail = () => {
           <DetailRow icon={<MapPin className="text-indigo-500" />} label="Địa chỉ" value={item.address} />
           <DetailRow icon={<Hash className="text-indigo-500" />} label="Mã QC" value={item.job_code} />
           <DetailRow icon={<Briefcase className="text-indigo-500" />} label="tk Portal" value={item.portal_id || 'N/A'} />
-          <DetailRow icon={<CheckCircle size={20} className="text-indigo-500" />} label="Trạng thái POSM" value={acceptance?.posm_status || item.posm_status_master || 'Chưa báo cáo'} />
+          <DetailRow 
+            icon={<CheckCircle size={20} className="text-indigo-500" />} 
+            label="Trạng thái POSM" 
+            value={(() => {
+              const status = item.posm_status || acceptance?.posm_status || item.posm_status_master || 'Chưa báo cáo';
+              if (item.status === 'Done') {
+                if (status.toLowerCase().includes('không posm')) return 'Không POSM';
+                if (status.toLowerCase().includes('có posm')) return 'Có POSM';
+                return status; // Fallback
+              }
+              return 'Chưa báo cáo';
+            })()} 
+          />
         </div>
 
         {/* Acceptance Info (Enhanced for Request) */}
