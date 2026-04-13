@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, AlertCircle, Loader2, Image as ImageIcon, MessageSquare, Info, MapPin, Tag, Sparkles } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, Loader2, Image as ImageIcon, MessageSquare, Info, MapPin, Tag, Sparkles, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../services/db';
 import { getCurrentWeekLabel } from '../utils/weekUtils';
@@ -26,6 +26,38 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
     }
     return () => { document.body.style.overflow = 'auto'; };
   }, [isOpen]);
+
+  // Helper function to save/share image to device (works for iOS specific Web Share API)
+  const handleSaveImage = async (base64Data) => {
+    try {
+      const res = await fetch(base64Data);
+      const blob = await res.blob();
+      const filename = `posm_capture_${Date.now()}.jpg`;
+      const file = new File([blob], filename, { type: 'image/jpeg' });
+
+      // Nếu Web Share API được hỗ trợ và có thể share file (iOS Safari hỗ trợ tốt tính năng này)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Lưu hình ảnh',
+        });
+      } else {
+        // Fallback tải xuống truyền thống (Lưu vào app Tệp trên iOS, hoặc tải về trực tiếp trên Android/PC)
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Lỗi khi lưu/share ảnh:', err);
+      }
+    }
+  };
 
   // Ad-hoc fields
   const [adHocBrand, setAdHocBrand] = useState('');
@@ -535,6 +567,17 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             onClick={() => setPreviewImage(null)}
           >
             <X size={22} />
+          </button>
+
+          {/* Download/Save button */}
+          <button
+            className="absolute top-6 right-24 w-12 h-12 bg-indigo-500/80 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white border border-white/20 transition-all active:scale-90"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSaveImage(previewImage);
+            }}
+          >
+            <Download size={22} />
           </button>
 
           {/* Full image */}
