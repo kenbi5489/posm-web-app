@@ -20,14 +20,14 @@ const LocationDetail = () => {
     window.scrollTo(0, 0);
     const loadItem = async () => {
       let found = await db.posmData.where({ job_code: jobCode, brand: decodeURIComponent(brand) }).first();
-      
+
       // Fallback to ad-hoc points if not found in master data
       if (!found && db.adhocPoints) {
         found = await db.adhocPoints.where({ job_code: jobCode, brand: decodeURIComponent(brand) }).first();
       }
 
       setItem(found);
-      
+
       if (found) {
         const acc = await db.acceptanceData.where({ job_code: jobCode }).first();
         setAcceptance(acc);
@@ -87,13 +87,13 @@ const LocationDetail = () => {
       <div className="p-6 space-y-6">
         {/* Status Banner */}
         {isDone ? (
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="bg-indigo-600 text-white p-7 rounded-[2.5rem] shadow-premium-indigo flex items-center gap-6"
           >
             <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center shadow-inner">
-               <CheckCircle size={40} className="text-white" />
+              <CheckCircle size={40} className="text-white" />
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">TRẠNG THÁI HOÀN TẤT</p>
@@ -101,14 +101,14 @@ const LocationDetail = () => {
             </div>
           </motion.div>
         ) : (
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="bg-amber-500 text-white p-7 rounded-[2.5rem] shadow-premium-amber flex flex-col gap-4"
           >
             <div className="flex items-center gap-6">
               <div className="w-16 h-16 bg-white/20 rounded-3xl flex items-center justify-center shadow-inner">
-                 <Calendar size={40} className="text-white" />
+                <Calendar size={40} className="text-white" />
               </div>
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-70 mb-1">CHƯA TRIỂN KHAI</p>
@@ -124,9 +124,9 @@ const LocationDetail = () => {
           <DetailRow icon={<MapPin className="text-indigo-500" />} label="Địa chỉ" value={item.address} />
           <DetailRow icon={<Hash className="text-indigo-500" />} label="Mã QC" value={item.job_code} />
           <DetailRow icon={<Briefcase className="text-indigo-500" />} label="tk Portal" value={item.portal_id || 'N/A'} />
-          <DetailRow 
-            icon={<CheckCircle size={20} className="text-indigo-500" />} 
-            label="Trạng thái POSM" 
+          <DetailRow
+            icon={<CheckCircle size={20} className="text-indigo-500" />}
+            label="Trạng thái POSM"
             value={(() => {
               const status = item.posm_status || acceptance?.posm_status || item.posm_status_master || 'Chưa báo cáo';
               if (item.status === 'Done') {
@@ -135,13 +135,13 @@ const LocationDetail = () => {
                 return status; // Fallback
               }
               return 'Chưa báo cáo';
-            })()} 
+            })()}
           />
         </div>
 
         {/* Acceptance Info (Enhanced for Request) */}
         {isDone && (
-          <motion.div 
+          <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             className="bg-white rounded-[3rem] p-10 shadow-soft space-y-8 border border-slate-100/50"
@@ -150,10 +150,10 @@ const LocationDetail = () => {
               <CheckCircle className="text-green-500" size={14} />
               Thông tin nghiệm thu
             </h3>
-            
+
             <div className="space-y-8">
               <DetailRow icon={<MessageCircle className="text-indigo-400" />} label="Ghi chú & PIC" value={`${acceptance?.note || item.acceptance_note || 'Không có ghi chú'} - ${item.reported_by || item.pic || 'N/A'}`} />
-              
+
               <div className="pt-6 border-t border-slate-50">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Hình ảnh báo cáo</p>
                 <div className="flex gap-4">
@@ -164,7 +164,7 @@ const LocationDetail = () => {
                   ) : (
                     <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Ảnh 1</div>
                   )}
-                  
+
                   {(acceptance?.image2 || item.image2) ? (
                     <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
                       <LinkIcon size={14} /> Ảnh 2
@@ -177,60 +177,60 @@ const LocationDetail = () => {
             </div>
           </motion.div>
         )}
-        
+
         {/* If not done show banner */}
         {!isDone && (
-            <div className="bg-slate-100/50 border border-dashed border-slate-200 rounded-[2.5rem] p-10 text-center">
-                <TriangleAlert className="mx-auto text-slate-300 mb-4" size={32} />
-                <p className="text-slate-400 text-xs font-bold leading-relaxed uppercase tracking-wider">
-                    Dữ liệu nghiệm thu chưa có.<br/>Vui lòng hoàn thành báo cáo trước.
-                </p>
-            </div>
+          <div className="bg-slate-100/50 border border-dashed border-slate-200 rounded-[2.5rem] p-10 text-center">
+            <TriangleAlert className="mx-auto text-slate-300 mb-4" size={32} />
+            <p className="text-slate-400 text-xs font-bold leading-relaxed uppercase tracking-wider">
+              Dữ liệu nghiệm thu chưa có.<br />Vui lòng hoàn thành báo cáo trước.
+            </p>
+          </div>
         )}
 
         {/* Map Preview */}
         <div className="w-full h-56 bg-slate-200 rounded-[2.5rem] overflow-hidden shadow-inner relative border-4 border-white">
-             <iframe
-                title="Google Maps"
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                style={{ border: 0 }}
-                src={`https://www.google.com/maps?q=${encodeURIComponent(item.address)}&output=svembed`}
-                allowFullScreen
-             />
+          <iframe
+            title="Google Maps"
+            width="100%"
+            height="100%"
+            frameBorder="0"
+            style={{ border: 0 }}
+            src={`https://www.google.com/maps?q=${encodeURIComponent(item.address)}&output=svembed`}
+            allowFullScreen
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-4 pb-12">
-          <button 
+          <button
             onClick={handleDirections}
             className="flex flex-col items-center justify-center gap-3 bg-white text-slate-800 font-black py-8 rounded-[2.5rem] shadow-soft border border-slate-100 active:scale-95 transition-transform"
           >
             <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600">
-               <Navigation size={24} />
+              <Navigation size={24} />
             </div>
             <span className="text-[10px] uppercase tracking-widest">Dẫn đường</span>
           </button>
-          
+
           {!isDone ? (
-             <button 
-                onClick={() => setIsReportModalOpen(true)}
-                className="flex flex-col items-center justify-center gap-3 bg-indigo-600 text-white font-black py-8 rounded-[2.5rem] shadow-premium-indigo active:scale-95 transition-transform"
-             >
-                <div className="p-3 bg-white/20 rounded-2xl">
-                    <FileEdit size={24} />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest">Báo cáo</span>
-             </button>
-          ) : (
-            <button 
-                onClick={() => setReverting(true)}
-                className="flex flex-col items-center justify-center gap-3 bg-white text-slate-400 font-black py-8 rounded-[2.5rem] shadow-soft border border-slate-100 active:scale-95 transition-transform opacity-60"
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              className="flex flex-col items-center justify-center gap-3 bg-indigo-600 text-white font-black py-8 rounded-[2.5rem] shadow-premium-indigo active:scale-95 transition-transform"
             >
-                <div className="p-3 bg-slate-50 rounded-2xl">
-                    <Calendar size={24} />
-                </div>
-                <span className="text-[10px] uppercase tracking-widest">Làm lại</span>
+              <div className="p-3 bg-white/20 rounded-2xl">
+                <FileEdit size={24} />
+              </div>
+              <span className="text-[10px] uppercase tracking-widest">Báo cáo</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setReverting(true)}
+              className="flex flex-col items-center justify-center gap-3 bg-white text-slate-400 font-black py-8 rounded-[2.5rem] shadow-soft border border-slate-100 active:scale-95 transition-transform opacity-60"
+            >
+              <div className="p-3 bg-slate-50 rounded-2xl">
+                <Calendar size={24} />
+              </div>
+              <span className="text-[10px] uppercase tracking-widest">Làm lại</span>
             </button>
           )}
         </div>
@@ -238,7 +238,7 @@ const LocationDetail = () => {
 
       <AnimatePresence>
         {isReportModalOpen && (
-          <ReportModal 
+          <ReportModal
             isOpen={isReportModalOpen}
             onClose={() => setIsReportModalOpen(false)}
             item={item}

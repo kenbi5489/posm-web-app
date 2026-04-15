@@ -81,13 +81,14 @@ const ListView = () => {
   }, [selectedStaff, user, lastSync, localRefreshTick]);
 
   const { filteredItems, uniqueWeeks, uniqueBrands } = useMemo(() => {
-    // 1. Derive globals from ALL items (ensures W1-W9 show up)
-    const brands = ['All', ...new Set(allItems.map(i => i.brand).filter(Boolean))].sort();
-    const sortedWeeks = [...new Set(allItems.map(i => i.week))].filter(Boolean).sort((a,b) => {
+    // 1. Derive weeks & brands from user-filtered listItems only (fast + user-scoped)
+    //    This avoids loading all brands from 37k rows which is slow and shows irrelevant data.
+    const sortedWeeks = [...new Set(listItems.map(i => i.week))].filter(Boolean).sort((a,b) => {
         const numA = parseInt(String(a).match(/\d+/)?.[0]) || 0;
         const numB = parseInt(String(b).match(/\d+/)?.[0]) || 0;
         return numA - numB;
     });
+    const brands = ['All', ...new Set(listItems.map(i => i.brand).filter(Boolean))].sort();
 
     // 2. Filter for Status + Filters (From items visible to user)
     let filtered = listItems;

@@ -25,10 +25,16 @@ const MapView = () => {
       try {
         const data = await db.posmData.toArray();
         const checkinData = db.checkins ? await db.checkins.toArray() : [];
+        const normalizeDistrict = (d) => {
+          const raw = String(d || '').trim();
+          if (!raw) return 'Cụm khác';
+          // Normalize: capitalize each word for consistent grouping key
+          return raw.toLowerCase().replace(/(?:^|\s|-)\S/g, c => c.toUpperCase());
+        };
         setAllItems(data.map(i => ({
           ...i,
           week: String(i.week || '').trim(),
-          district: String(i.district || i.Quận || 'Cụm khác').trim(),
+          district: normalizeDistrict(i.district || i.Quận || 'Cụm khác'),
         })));
         setCheckins(checkinData);
       } catch (err) { console.error(err); }

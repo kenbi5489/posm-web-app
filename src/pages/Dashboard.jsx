@@ -93,8 +93,9 @@ const Dashboard = () => {
         setRawItems(items);
         setAdhocRawItems(adhocItems);
 
-        // Derive unique values for filters (Weeks from ALL items to show missing weeks too)
-        const weeks = [...new Set(allData.map(i => i.week))].filter(Boolean).sort((a, b) => {
+        // Derive unique values for filters from user-scoped items only (fast + relevant)
+        // Previously used allData for weeks which was slow (37k rows) and showed all users' weeks
+        const weeks = [...new Set(items.map(i => i.week))].filter(Boolean).sort((a, b) => {
           const numA = parseInt(String(a).match(/\d+/)?.[0]) || 0;
           const numB = parseInt(String(b).match(/\d+/)?.[0]) || 0;
           return numA - numB;
