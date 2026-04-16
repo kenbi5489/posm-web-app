@@ -77,6 +77,16 @@ db.version(17).stores({
   await tx.table('posmData').clear();
 });
 
+// Version 18: Add project field to posmData and adhocPoints for UrGift/UrPoint tracking
+db.version(18).stores({
+  users: 'user_id, user_name, ho_ten, role',
+  posmData: '++id, job_code, brand, pic_id, status, district, week, pic, priority, project',
+  acceptanceData: '++id, job_code',
+  syncQueue: '++id, type, payload, timestamp',
+  checkins: '++id, job_code, pic_id, checkin_time, result',
+  adhocPoints: '++id, job_code, brand, pic_id, submitted_at, week, project'
+});
+
 export const masterReset = async () => {
   await db.delete();
   localStorage.clear();

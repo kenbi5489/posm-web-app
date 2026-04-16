@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { useSync } from '../hooks/useSync';
-import { CheckCircle2, CircleDashed, LayoutGrid, MapPin, ListChecks, TrendingUp, Zap } from 'lucide-react';
+import { CheckCircle2, CircleDashed, LayoutGrid, MapPin, ListChecks, TrendingUp, Zap, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import ReportModal from '../components/ReportModal';
@@ -16,7 +16,7 @@ const Dashboard = () => {
   const [week, setWeek] = useState('All');
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [brand, setBrand] = useState('All');
-  const [stats, setStats] = useState({ assignedTotal: 0, assignedPending: 0, totalDone: 0, adhocDone: 0, percent: 0, efficiency: 0, priorityPending: 0 });
+  const [stats, setStats] = useState({ assignedTotal: 0, assignedPending: 0, totalDone: 0, adhocDone: 0, umsDone: 0, percent: 0, efficiency: 0, priorityPending: 0 });
   const [uniqueWeeks, setUniqueWeeks] = useState([]);
   const [uniqueBrands, setUniqueBrands] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -153,10 +153,36 @@ const Dashboard = () => {
     }
 
     const adhocMap = new Map();
-    // Synced ones first
-    syncedAdhocs.forEach(item => { if (item.job_code) adhocMap.set(item.job_code, item); });
-    // Local ones (will overwrite synced ones if same job_code, ensuring freshest local state)
-    adhocLocal.forEach(item => { if (item.job_code) adhocMap.set(item.job_code, item); });
+
+    // Step 1: index local adhocPoints by job_code (source of truth for project field)
+    const localProjectMap = new Map();
+    adhocLocal.forEach(item => {
+      if (item.job_code) localProjectMap.set(item.job_code, item.project || '');
+    });
+
+    // Step 2: put synced records, but RESTORE project from local if sheet hasn't written it yet
+    syncedAdhocs.forEach(item => {
+      if (!item.job_code) return;
+      const localProject = localProjectMap.get(item.job_code) || '';
+      adhocMap.set(item.job_code, {
+        ...item,
+        project: item.project || localProject, // prefer sheet value, fallback local
+      });
+    });
+
+    // Step 3: add local records not yet synced (still pending on sheet)
+    adhocLocal.forEach(item => {
+      if (!item.job_code) return;
+      if (!adhocMap.has(item.job_code)) {
+        adhocMap.set(item.job_code, item);
+      } else {
+        // Already synced — ensure project is preserved
+        const existing = adhocMap.get(item.job_code);
+        if (!existing.project && item.project) {
+          adhocMap.set(item.job_code, { ...existing, project: item.project });
+        }
+      }
+    });
 
     const adhocFiltered = Array.from(adhocMap.values());
 
@@ -166,6 +192,19 @@ const Dashboard = () => {
 
     const adhocDone = adhocFiltered.filter(i => i.status?.toLowerCase() === 'done').length;
     const totalDone = assignedDone + adhocDone;
+
+    // Task team UMS: count UrPoint items that are Done
+    // - Assigned UrPoint points (from master sheet with project = UrPoint) that are Done
+    const assignedUmsDone = assignedFiltered.filter(i =>
+      i.status?.toLowerCase() === 'done' &&
+      (i.project || '').toLowerCase() === 'urpoint'
+    ).length;
+    // - Ad-hoc points submitted with project = UrPoint that are Done
+    const adhocUmsDone = adhocFiltered.filter(i =>
+      i.status?.toLowerCase() === 'done' &&
+      (i.project || '').toLowerCase() === 'urpoint'
+    ).length;
+    const umsDone = assignedUmsDone + adhocUmsDone;
 
     // Tỉ lệ hoàn thành: 75 points = 100%
     const completionRate = Math.min(100, Math.round((totalDone / 75) * 100));
@@ -181,6 +220,7 @@ const Dashboard = () => {
       assignedPending,
       totalDone,
       adhocDone,
+      umsDone,
       percent: completionRate,
       efficiency,
       priorityPending
@@ -294,12 +334,37 @@ const Dashboard = () => {
         </select>
       </div>
 
-      <section className="grid grid-cols-2 gap-4">
-        <StatCard icon={<LayoutGrid className="text-indigo-600" size={20} />} label="Điểm phân bổ" value={stats.assignedTotal} color="bg-indigo-50" />
-        <StatCard icon={<CircleDashed className="text-amber-600" size={20} />} label="Cần thực hiện" value={stats.assignedPending} color="bg-amber-50" />
+      <section className="grid grid-cols-2 gap-3">
+        {/* Row 1 */}
+        <StatCard
+          icon={<LayoutGrid size={18} />}
+          label="Điểm phân bổ"
+          value={stats.assignedTotal}
+          accent="indigo"
+        />
+        <StatCard
+          icon={<CircleDashed size={18} />}
+          label="Cần thực hiện"
+          value={stats.assignedPending}
+          accent="amber"
+        />
 
-        <StatCard icon={<CheckCircle2 className="text-emerald-600" size={20} />} label="Tổng hoàn thành" value={stats.totalDone} color="bg-emerald-50" />
-        <StatCard icon={<MapPin className="text-violet-600" size={20} />} label="Điểm đi ngoài" value={stats.adhocDone} color="bg-violet-50" />
+        {/* Row 2 */}
+        <StatCard
+          icon={<CheckCircle2 size={18} />}
+          label="Hoàn thành"
+          value={stats.totalDone}
+          accent="emerald"
+        />
+        <StatCard
+          icon={<MapPin size={18} />}
+          label="Điểm ngoài"
+          value={stats.adhocDone}
+          accent="violet"
+        />
+
+        {/* Row 3 – UMS full width */}
+        <UMSCard value={stats.umsDone} />
       </section>
 
       <div className="bg-white p-6 rounded-[2.5rem] shadow-soft border border-slate-50 relative overflow-hidden">
@@ -384,12 +449,55 @@ const Dashboard = () => {
   );
 };
 
-const StatCard = ({ icon, label, value, color }) => (
-  <div className={`${color} p-5 rounded-3xl border border-white flex flex-col gap-3 shadow-soft`}>
-    <div className="w-10 h-10 bg-white rounded-2xl flex items-center justify-center shadow-sm">{icon}</div>
-    <div>
-      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{label}</p>
-      <p className="text-2xl font-black text-slate-800 tracking-tight">{value}</p>
+// Accent palette for StatCard
+const ACCENT = {
+  indigo:  { bg: 'bg-indigo-50',  icon: 'bg-indigo-600',  text: 'text-indigo-600' },
+  amber:   { bg: 'bg-amber-50',   icon: 'bg-amber-500',   text: 'text-amber-600'  },
+  emerald: { bg: 'bg-emerald-50', icon: 'bg-emerald-600', text: 'text-emerald-600'},
+  violet:  { bg: 'bg-violet-50',  icon: 'bg-violet-600',  text: 'text-violet-600' },
+};
+
+const StatCard = ({ icon, label, value, accent = 'indigo' }) => {
+  const { bg, icon: iconBg, text } = ACCENT[accent] || ACCENT.indigo;
+  return (
+    <div className={`${bg} p-4 rounded-3xl border border-white shadow-soft flex flex-col gap-3`}>
+      {/* icon pill */}
+      <div className={`${iconBg} w-9 h-9 rounded-2xl flex items-center justify-center text-white shadow-sm`}>
+        {icon}
+      </div>
+      {/* numbers */}
+      <div className="space-y-0.5">
+        <p className={`text-2xl font-black tracking-tight leading-none ${text}`}>{value}</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider leading-tight">{label}</p>
+      </div>
+    </div>
+  );
+};
+
+// Special UMS card — spans 2 columns, gradient banner style
+const UMSCard = ({ value }) => (
+  <div className="col-span-2 rounded-3xl overflow-hidden border border-white shadow-soft">
+    <div className="bg-gradient-to-r from-rose-500 to-pink-600 px-5 py-4 flex items-center justify-between">
+      {/* left: icon + label */}
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+          <Star size={20} className="text-white fill-white/80" />
+        </div>
+        <div>
+          <p className="text-white font-black text-sm leading-tight">Task team UMS</p>
+          <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest leading-tight">UrPoint completed</p>
+        </div>
+      </div>
+      {/* right: big number */}
+      <div className="text-right">
+        <p className="text-white font-black text-4xl leading-none tracking-tighter">{value}</p>
+        <p className="text-white/60 text-[10px] font-bold uppercase tracking-wider">điểm</p>
+      </div>
+    </div>
+    {/* subtle bottom strip */}
+    <div className="bg-rose-50 px-5 py-2 flex items-center gap-1.5">
+      <div className="w-2 h-2 rounded-full bg-rose-400" />
+      <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Tính vào tổng hoàn thành</p>
     </div>
   </div>
 );

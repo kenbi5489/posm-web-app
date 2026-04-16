@@ -62,6 +62,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
   // Ad-hoc fields
   const [adHocBrand, setAdHocBrand] = useState('');
   const [adHocAddress, setAdHocAddress] = useState('');
+  const [selectedProject, setSelectedProject] = useState(item?.project || (isAdHoc ? 'UrGift' : 'UrGift'));
 
   // Form State
   const [storeStatus, setStoreStatus] = useState('Site check');
@@ -147,6 +148,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         if (!adHocBrand.trim()) throw new Error("Vui lòng nhập Tên Nhãn Hàng");
         if (!adHocAddress.trim()) throw new Error("Vui lòng nhập Địa Chỉ chi tiết");
       }
+      if (!selectedProject) throw new Error("Vui lòng chọn Project");
 
       if (!hasImages && !hasNote) {
         throw new Error("Bạn vui lòng kiểm tra lại thông tin");
@@ -182,6 +184,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             is_adhoc: true,
             week: weekLabel,
             submitted_at: new Date().toISOString(),
+            project: selectedProject,
           });
           console.log('[AdHoc] Saved to local DB, week:', weekLabel);
           triggerLocalRefresh(); // Notify Dashboard/ListView to re-render immediately
@@ -207,7 +210,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         isAdHoc: isAdHoc,
         
         // Index 4 -> Col F: Project
-        project: "UrGift",
+        project: selectedProject,
         
         // Index 5 -> Col G: Hình thức thanh toán (Hidden)
         paymentType: "N/A",
@@ -258,6 +261,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
           await db.posmData.where('job_code').equals(item.job_code || '').modify({
             status: 'Done',
             posm_status: mappedPosmStatus,
+            project: selectedProject,
           });
           triggerLocalRefresh(); // Notify Dashboard/ListView to re-render immediately
         } catch (dbErr) {
@@ -331,9 +335,14 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">MỚI • ĐIỂM PHÁT SINH</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-slate-400 bg-slate-50 w-fit px-3 py-1 rounded-full border border-slate-100">
-                  <Info size={14} className="text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">{item.job_code} • {item.brand}</span>
+                <div className="flex items-start gap-2 text-slate-400 bg-slate-50 w-fit px-3 py-1.5 rounded-2xl border border-slate-100 max-w-full">
+                  <Info size={14} className="text-primary mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-black uppercase tracking-widest block">{item.job_code} • {item.brand}</span>
+                    {item.address && item.address !== 'N/A' && (
+                      <span className="text-[10px] font-semibold text-slate-400 block truncate">{item.address}</span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -372,6 +381,23 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                   </div>
                 </motion.div>
               )}
+
+              {/* SECTION: PROJECT SELECTION (For both Ad-hoc and Assigned) */}
+              <div className="space-y-4 pt-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Project <span className="text-rose-500">*</span></label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProject('UrGift')}
+                    className={`py-3 rounded-2xl text-sm font-black transition-all ${selectedProject === 'UrGift' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
+                  >UrGift</button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedProject('UrPoint')}
+                    className={`py-3 rounded-2xl text-sm font-black transition-all ${selectedProject === 'UrPoint' ? 'bg-violet-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
+                  >UrPoint</button>
+                </div>
+              </div>
 
               {/* SECTION: TÌNH TRẠNG POSM */}
               <div className="space-y-4">

@@ -110,6 +110,33 @@ export const useSync = (user) => {
       const nameToId = new Map();
       users.forEach(u => { if (u.ho_ten) nameToId.set(stripAccents(u.ho_ten).toLowerCase().trim(), u.user_id); });
 
+      // Load local adhocPoints TRƯỚC khi process acceptance — dùng để fallback project
+      // khi GAS chưa ghi Project vào sheet CSV
+      const localAdhocProjectMap = new Map();
+      const localProjectMap = new Map();
+      try {
+        if (db.posmData) {
+          const localPoints = await db.posmData.toArray();
+          localPoints.forEach(p => {
+             if (p.job_code && p.project) {
+                 localProjectMap.set(String(p.job_code).toUpperCase().trim(), p.project);
+             }
+          });
+          console.log('[pullData] Loaded localProjectMap:', localProjectMap.size, 'entries');
+        }
+        if (db.adhocPoints) {
+          const localAdhocs = await db.adhocPoints.toArray();
+          localAdhocs.forEach(a => {
+            if (a.job_code && a.project) {
+              // Index bằng cả raw key và normalized key để match mọi trường hợp
+              localAdhocProjectMap.set(String(a.job_code).toUpperCase().trim(), a.project);
+              localAdhocProjectMap.set(String(a.job_code).trim(), a.project);
+            }
+          });
+          console.log('[pullData] Loaded localAdhocProjectMap:', localAdhocProjectMap.size, 'entries');
+        }
+      } catch (_e) { /* ignore */ }
+
       // Step 1: Build Missions (Master Data)
       data.forEach((row, index) => {
         const jobCodeRaw = getValFast(row, ['Mã cv', 'job_code', 'Ma cv', 'jobCode', 'Mã CV'], headerMapData);
@@ -155,6 +182,7 @@ export const useSync = (user) => {
           note: getValFast(row, ['Note', 'Ghi chú', 'Ghi chu'], headerMapData) || '',
           count_st: getValFast(row, ['Count st', 'Count số lần triển khai'], headerMapData) || '',
           priority: isPriority,
+          project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapData) || localProjectMap.get(String(jobCodeRaw).toUpperCase().trim()) || '',
         };
 
         assignmentsMap.set(compositeKey, item);
@@ -252,10 +280,15 @@ export const useSync = (user) => {
             image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
             image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
             acceptance_note: getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc),
-            reported_by: picName
+            reported_by: picName,
+            project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapAcc)
+              || localAdhocProjectMap.get(String(jobCodeRaw).toUpperCase().trim())
+              || localAdhocProjectMap.get(String(jobCodeRaw).trim())
+              || '',
           });
         } else if (targetKey) {
           const existing = assignmentsMap.get(targetKey);
+          const accProject = getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapAcc) || '';
           assignmentsMap.set(targetKey, {
             ...existing,
             status: 'Done',
@@ -265,7 +298,8 @@ export const useSync = (user) => {
             image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
             image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
             acceptance_note: getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc),
-            reported_by: picName
+            reported_by: picName,
+            project: accProject || existing.project || '',
           });
           matchCount++;
         } else {
@@ -354,14 +388,34 @@ export const useSync = (user) => {
           const now = Date.now();
           const syncJobCodes = new Set(transformed.map(i => i.job_code));
 
-          const toDelete = allAdhocs.filter(a => {
-            // Case 1: If it's already on the Sheet, clear the local draft immediately
-            if (syncJobCodes.has(a.job_code)) return true;
+          // Normalize syncJobCodes to handle cleanKey() stripping vs raw job_code mismatch
+          const syncJobCodesNorm = new Set(
+            [...syncJobCodes].map(jc => String(jc || '').toUpperCase().trim())
+          );
 
-            // Case 2: If it's NOT on the sheet, only keep it for 2 minutes (Safety window for Google GAS delay)
-            // After 5 seconds, if it's still not on the sheet, assume it was deleted by Admin.
+          // Build a map of job_code -> project from transformed to check if project was synced
+          const syncedProjectMap = new Map();
+          transformed.forEach(i => {
+            if (i.job_code) syncedProjectMap.set(String(i.job_code).toUpperCase().trim(), i.project || '');
+          });
+
+          const toDelete = allAdhocs.filter(a => {
+            const aCodeNorm = String(a.job_code || '').toUpperCase().trim();
+            
+            // Case 1: synced back AND project is preserved → safe to delete local draft
+            if (syncJobCodesNorm.has(aCodeNorm)) {
+              const syncedProject = syncedProjectMap.get(aCodeNorm) || '';
+              const localProject = a.project || '';
+              // Only delete if: no local project OR synced project matches local project
+              if (!localProject || syncedProject === localProject) return true;
+              // Has local project but synced doesn't have it yet → keep local draft
+              console.log('[GC] Keeping local adhoc', a.job_code, 'project not synced yet:', localProject, '≠', syncedProject);
+              return false;
+            }
+
+            // Case 2: Keep local draft for 30 minutes if not on sheet yet
             const submittedAt = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
-            return (now - submittedAt) > 5 * 1000; // 5 seconds
+            return (now - submittedAt) > 30 * 60 * 1000; // 30 minutes
           }).map(a => a.id);
           
           if (toDelete.length > 0) {
@@ -410,6 +464,15 @@ export const useSync = (user) => {
         jobCodeIndex.get(r.job_code).push(r);
       });
 
+      // Load local adhocPoints to preserve project field when GAS hasn't written it yet
+      let localAdhocMap = new Map();
+      try {
+        if (db.adhocPoints) {
+          const localAdhocs = await db.adhocPoints.toArray();
+          localAdhocs.forEach(a => { if (a.job_code) localAdhocMap.set(a.job_code, a); });
+        }
+      } catch (e) { /* ignore */ }
+
       const updates = [];
       rawAcc.forEach(row => {
         const jobCodeRaw = getValFast(row, [
@@ -428,13 +491,48 @@ export const useSync = (user) => {
         const completionDate  = getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '';
         const posmStatus      = getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '';
         const accNote         = getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc);
+        // Read project from sheet — may be empty if GAS hasn't written it yet
+        const sheetProject    = getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapAcc) || '';
 
         const records  = jobCodeIndex.get(jobCode) || [];
         const target   = records.find(r => r.status !== 'Done') || records[0];
-        if (!target) return;
+
+        // Resolve project from all available sources
+        const localAdhoc = localAdhocMap.get(jobCode)
+          || localAdhocMap.get(jobCodeRaw)  // try raw key too
+          || Array.from(localAdhocMap.values()).find(a =>
+              String(a.job_code || '').toUpperCase().trim() === jobCode.toUpperCase().trim()
+            );
+        const resolvedProject = sheetProject || target?.project || localAdhoc?.project || '';
+
+        if (!target) {
+          // NEW_ record not yet in posmData (full sync hasn't run) — create virtual entry
+          if (!upperJobCode.includes('NEW_')) return;
+          const la = localAdhoc;
+          if (!la) return; // no local record either, skip
+          updates.push({
+            job_code: la.job_code || jobCodeRaw,
+            brand: la.brand || '',
+            address: la.address || '',
+            pic: la.pic || picName,
+            pic_id: la.pic_id || '',
+            week: la.week || '',
+            status: 'Done',
+            is_adhoc: true,
+            is_virtual: true,
+            completion_date: completionDate,
+            posm_status: posmStatus || '',
+            image1: newImage1,
+            image2: newImage2,
+            acceptance_note: accNote,
+            reported_by: picName,
+            project: resolvedProject,
+          });
+          return;
+        }
 
         // Skip records that haven't changed (avoid unnecessary writes)
-        if (target.status === 'Done' && target.image1 === newImage1 && target.image1) return;
+        if (target.status === 'Done' && target.image1 === newImage1 && target.image1 && target.project === resolvedProject) return;
 
         updates.push({
           ...target,
@@ -445,6 +543,7 @@ export const useSync = (user) => {
           image2: newImage2,
           acceptance_note: accNote,
           reported_by: picName,
+          project: resolvedProject,
         });
       });
 
