@@ -474,33 +474,31 @@ const StatCard = ({ icon, label, value, accent = 'indigo' }) => {
   );
 };
 
-// Special UMS card — spans 2 columns, gradient banner style
+// Special UMS card — spans 2 columns, clean premium style
 const UMSCard = ({ value }) => (
-  <div className="col-span-2 rounded-3xl overflow-hidden border border-white shadow-soft">
-    <div className="bg-gradient-to-r from-rose-500 to-pink-600 px-5 py-4 flex items-center justify-between">
-      {/* left: icon + label */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-          <Star size={20} className="text-white fill-white/80" />
-        </div>
-        <div>
-          <p className="text-white font-black text-sm leading-tight">Task team UMS</p>
-          <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest leading-tight">UrPoint completed</p>
-        </div>
+  <div className="col-span-2 rounded-[2rem] overflow-hidden border border-slate-50 bg-white shadow-premium p-6 flex items-center justify-between relative">
+    {/* Decorative background element */}
+    <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50/50 rounded-full -mr-16 -mt-16 blur-3xl" />
+    
+    <div className="flex items-center gap-4 relative z-10">
+      <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-100 border-4 border-white transform -rotate-3">
+        <Star size={28} className="text-white fill-white/80" />
       </div>
-      {/* right: big number */}
-      <div className="text-right">
-        <p className="text-white font-black text-4xl leading-none tracking-tighter">{value}</p>
-        <p className="text-white/60 text-[10px] font-bold uppercase tracking-wider">điểm</p>
+      <div>
+        <p className="text-slate-900 font-black text-lg uppercase tracking-tighter leading-none">Task team UMS</p>
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1.5 opacity-70">UrPoint completed</p>
       </div>
     </div>
-    {/* subtle bottom strip */}
-    <div className="bg-rose-50 px-5 py-2 flex items-center gap-1.5">
-      <div className="w-2 h-2 rounded-full bg-rose-400" />
-      <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Tính vào tổng hoàn thành</p>
+
+    <div className="text-right relative z-10">
+      <div className="flex items-baseline justify-end gap-1">
+        <span className="text-indigo-600 font-black text-5xl leading-none tracking-tighter">{value}</span>
+        <span className="text-slate-300 text-xs font-black uppercase tracking-widest">điểm</span>
+      </div>
     </div>
   </div>
 );
+
 
 const QuickLink = ({ to, icon, label, color }) => (
   <Link to={to} className="flex flex-col items-center gap-2 group">
