@@ -7,7 +7,8 @@ import { db } from '../services/db';
 import { getCurrentWeekLabel } from '../utils/weekUtils';
 
 // --- CONFIGURATION ---
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx-HzDy5E7mhZPylYRXRaEddMBMpt_74MoAStUp2qKbRYx-Fua-XVcATnp317yjAvJ8Tg/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxCo0nA6Ikxfuucow1-v4MViGX04UT8s5oiEIUI6GFAN9ESftVW2Wql3w7XRn474JAvDQ/exec";
+
 
 const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
   const isAdHoc = !!(item?.isAdHoc);
