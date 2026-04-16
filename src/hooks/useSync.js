@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchPOSMData, fetchAcceptanceData } from '../services/api';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
-import { getCustomWeekNumber } from '../utils/weekUtils';
+import { getCustomWeekNumber, getWeekLabelHelper } from '../utils/weekUtils';
 
 let syncInProgress = false;
 const FULL_SYNC_INTERVAL_MS = 20 * 60 * 1000;       // 20 min — mission data rarely changes
@@ -42,6 +42,17 @@ const normStatus = (s) => {
   if (['done', 'ho\u00e0n th\u00e0nh', 'hoan thanh', '\u0111\u00e3 xong', 'da xong', 'ok', '\u0111\u1ea1t', 'dat', 'xong'].includes(clean)) return 'Done';
   return 'On-going';
 };
+const parseDateSafe = (dateStr) => {
+  if (!dateStr) return null;
+  const s = dateStr.toString().split(' ')[0]; // remove time part
+  const parts = s.includes('/') ? s.split('/') : s.split('-');
+  if (parts.length === 3) {
+    if (parts[0].length === 4) return new Date(parts[0], parts[1]-1, parts[2]);
+    return new Date(parts[2], parts[1]-1, parts[0]);
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+};
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const useSync = (user) => {
@@ -62,6 +73,26 @@ export const useSync = (user) => {
       const { data: rawAcc, isMock: isAccMock } = accResponse;
 
       const headerMapDataRaw = rawData.length > 0 ? getHeaderMap(rawData[0]) : new Map();
+      const rawDataKeys = rawData.length > 0 ? Object.keys(rawData[0]) : [];
+      // Look for explicit (H) suffix, or 'h' header, or fall back to 8th column
+      const colHKey = rawDataKeys.find(k => k.includes('(H)') || k.toLowerCase().trim() === 'h' || k.toLowerCase().includes('tình trạng')) || (rawDataKeys.length >= 8 ? rawDataKeys[7] : null);
+      
+      if (rawDataKeys.length > 0) {
+        console.group('[Sync Diagnostic - Mission Data]');
+        console.log('Total Columns:', rawDataKeys.length);
+        console.log('Sample Headers (first 12):', rawDataKeys.slice(0, 12));
+        console.log('Detected Column H Key:', colHKey);
+        if (colHKey) {
+          const sampleData = rawData.slice(0, 5).map(r => r[colHKey]);
+          console.log('Sample Col H Values:', sampleData);
+          // Auto-check if 'đóng cửa' exists in this column
+          const hasClosed = rawData.some(r => String(r[colHKey] || '').toLowerCase().includes('đóng cửa'));
+          console.log('Does Col H have "đóng cửa" values?', hasClosed);
+        }
+        localStorage.setItem('diag_mission_headers', JSON.stringify(rawDataKeys));
+        localStorage.setItem('diag_mission_sample', JSON.stringify(rawData[0] || {}));
+        console.groupEnd();
+      }
 
       // 1. DETERMINE WEEKS & MONTHS (Full History)
       const weekToMonth = new Map();
@@ -91,10 +122,17 @@ export const useSync = (user) => {
         }
       });
 
-      const getWeekLabel = (num) => {
+      const getWeekLabel = (num, row = null) => {
         if (!num) return 'W??';
-        const month = weekToMonth.get(num);
-        return month ? `W${num} (T.${month})` : `W${num}`;
+        
+        // Cố gắng lấy ngày từ row để tính tháng chính xác nhất
+        let dateRef = null;
+        if (row) {
+          const dateStr = getValFast(row, ['Ngày chia', 'Ngay chia', 'Ngày', 'Date'], headerMapDataRaw);
+          dateRef = parseDateSafe(dateStr);
+        }
+        
+        return getWeekLabelHelper(num, dateRef);
       };
 
       const data = rawData;
@@ -143,17 +181,15 @@ export const useSync = (user) => {
         if (!jobCodeRaw || jobCodeRaw.length < 2) return;
         const jobCode = cleanKey(jobCodeRaw);
 
-        const weekNumVal = getValFast(row, ['WEEKnum', 'WEEK_num', 'WEEK num', 'weeknum'], headerMapData);
+        const weekNumVal = getValFast(row, ['Week triển khai', 'Week', 'Tuần', 'Tuan', 'WEEKnum', 'WEEK_num'], headerMapData);
         let weekNum = parseInt(weekNumVal.toString().match(/\d+/)?.[0]) || 0;
 
-        if (!weekNum) {
-          const fallbackWeek = getValFast(row, ['Week triển khai', 'Week', 'Tuần', 'Tuan'], headerMapData);
-          weekNum = parseInt(fallbackWeek.toString().match(/\d+/)?.[0]) || 0;
-        }
+        // CRITICAL: REMOVE W52 COMPLETELY
+        if (weekNum === 52) return;
 
-        const week = getWeekLabel(weekNum);
-        const brand = getValFast(row, ['Brand', 'Nhãn hàng', 'Nhan hang'], headerMapData) || 'N/A';
-        const compositeKey = `${jobCode}_${week}_${brand}_${index}`;
+        const weekLabel = getWeekLabelHelper(weekNum);
+        const brandMatch = getValFast(row, ['Brand', 'Nhan hang', 'Nhãn hàng'], headerMapData) || 'Khác';
+        const compositeKey = `${jobCode}_${weekLabel}_${brandMatch}_${index}`;
 
         const parseCoord = (s) => {
           if (!s) return null;
@@ -161,14 +197,14 @@ export const useSync = (user) => {
           return isNaN(val) || val === 0 ? null : val;
         };
 
-        // Priority mapping
         const priorityVal = getValFast(row, ['Ưu tiên', 'Uu tien', 'Priority', 'ưu'], headerMapData);
         const isPriority = priorityVal.toString().toUpperCase() === 'TRUE' || priorityVal === '1' || priorityVal.toString().toUpperCase() === 'YES';
 
-        const item = {
-          week,
+        assignmentsMap.set(compositeKey, {
+          id: compositeKey,
+          week: weekLabel,
           date_assigned: getValFast(row, ['Ngày chia', 'Ngay chia', 'Ngày', 'Date'], headerMapData),
-          brand,
+          brand: brandMatch,
           job_code: jobCode,
           address: getValFast(row, ['Địa chỉ', 'Dia chi', 'Address'], headerMapData),
           district: getValFast(row, ['Quận', 'Quan', 'District', 'Huyện'], headerMapData),
@@ -179,13 +215,13 @@ export const useSync = (user) => {
           lat: parseCoord(getValFast(row, ['latitude', 'lat', 'vĩ độ'], headerMapData)),
           lng: parseCoord(getValFast(row, ['longitude', 'lng', 'kinh độ'], headerMapData)),
           mall_name: getValFast(row, ['Mall_Name', 'Mall', 'Trung tâm'], headerMapData) || 'N/A',
+          location_type: getValFast(row, ['Location Type', 'Loại hình', 'Loại điểm', 'Location_Type'], headerMapData) || '',
           note: getValFast(row, ['Note', 'Ghi chú', 'Ghi chu'], headerMapData) || '',
-          count_st: getValFast(row, ['Count st', 'Count số lần triển khai'], headerMapData) || '',
+          urgift_status: getValFast(row, ['Hoạt động UrGift', 'Hoat dong UrGift', 'urgift_status', 'Store Status'], headerMapData) || '',
           priority: isPriority,
           project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapData) || localProjectMap.get(String(jobCodeRaw).toUpperCase().trim()) || '',
-        };
+        });
 
-        assignmentsMap.set(compositeKey, item);
         if (!jobCodeToIndex.has(jobCode)) jobCodeToIndex.set(jobCode, []);
         jobCodeToIndex.get(jobCode).push(compositeKey);
       });
@@ -201,17 +237,15 @@ export const useSync = (user) => {
           'job_code', 'jobCode'
         ], headerMapAcc);
         const jobCode = cleanKey(jobCodeRaw);
-        // Extract report week from WEEKnum column (AJ)
         const upperJobCode = jobCode.toUpperCase();
-
-        if (upperJobCode.includes('NEW_')) {
-          console.log('FOUND NEW_ ROW IN ACCEPTANCE:', { jobCodeRaw, row });
-        }
 
         if (!jobCode || (!upperJobCode.includes('QC') && !upperJobCode.includes('NEW_'))) return;
 
         const weekNumVal = getValFast(row, ['WEEKnum', 'WEEK_num', 'Week', 'Tuần', 'Tuan'], headerMapAcc);
         let reportWeekNum = parseInt(weekNumVal.toString().match(/\d+/)?.[0]) || 0;
+
+        // CRITICAL: REMOVE W52 COMPLETELY
+        if (reportWeekNum === 52) return;
 
         // Date fallback if WEEKnum is missing
         if (!reportWeekNum) {
@@ -219,8 +253,7 @@ export const useSync = (user) => {
           if (dateStr) reportWeekNum = getCustomWeekNumber(dateStr.split(' ')[0]);
         }
 
-        const reportWeekString = getWeekLabel(reportWeekNum);
-
+        const reportWeekString = getWeekLabelHelper(reportWeekNum);
         const picName = (getValFast(row, ['Tên nhân viên', 'Họ tên nhân sự', 'Nhân viên', 'Người báo cáo', 'Nhan vien'], headerMapAcc) || '').toString().trim();
         const picId = nameToId.get(stripAccents(picName).toLowerCase().trim()) || '';
         const pidNorm = picId.toString().trim().toLowerCase();
@@ -280,6 +313,7 @@ export const useSync = (user) => {
             image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
             image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
             acceptance_note: getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc),
+            urgift_status: getValFast(row, ['Hoạt động UrGift', 'Hoat dong UrGift', 'urgift_status', 'Store Status'], headerMapAcc) || '',
             reported_by: picName,
             project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapAcc)
               || localAdhocProjectMap.get(String(jobCodeRaw).toUpperCase().trim())
@@ -297,12 +331,43 @@ export const useSync = (user) => {
             posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
             image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
             image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
+            is_frame: (() => {
+              const f = (getValFast(row, ['Has_UrBox_Logo', 'Frame', 'Logo', 'Khung'], headerMapAcc) || "").toLowerCase();
+              return f.includes('yes') || f.includes('có') || f.includes('frame');
+            })(),
             acceptance_note: getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc),
+            urgift_status: getValFast(row, ['Hoạt động UrGift', 'Hoat dong UrGift', 'urgift_status', 'Store Status'], headerMapAcc) || existing.urgift_status || '',
+            mall_name: getValFast(row, ['Mall_Name', 'Mall Name', 'Mall', 'Trung tâm'], headerMapAcc) || existing.mall_name || 'N/A',
+            location_type: getValFast(row, ['Location_Type', 'Location Type', 'Loại hình'], headerMapAcc) || existing.location_type || '',
             reported_by: picName,
             project: accProject || existing.project || '',
           });
           matchCount++;
         } else {
+          // ── ORPHANED REPORT HANDLING ──────────────────────────────────────
+          // If we have a report for a QC code that is NOT in the current missions 
+          // (because it's an old week), we still want to keep it as "Historical".
+          const stableKey = `${jobCode}__HISTORICAL__${reportWeekString || 'W??'}`;
+          if (!assignmentsMap.has(stableKey)) {
+            assignmentsMap.set(stableKey, {
+              week: reportWeekString || 'W??',
+              date_assigned: getValFast(row, ['Ngày báo cáo', 'Timestamp', 'Thời gian'], headerMapAcc),
+              brand: getValFast(row, ['Brand', 'Nhãn hàng'], headerMapAcc) || 'N/A',
+              job_code: jobCode,
+              address: getValFast(row, ['Địa chỉ', 'dia chi', 'Address'], headerMapAcc) || 'N/A',
+              district: getValFast(row, ['Quận', 'Huyện', 'District'], headerMapAcc) || 'Khác',
+              city: getValFast(row, ['Thành Phố', 'Tỉnh', 'City'], headerMapAcc) || 'N/A',
+              pic: picName,
+              status: 'Done',
+              pic_id: picId,
+              isHistorical: true,
+              completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
+              posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
+              image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
+              image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
+              project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapAcc) || '',
+            });
+          }
           unmatchedCodes.push(jobCodeRaw);
           // Standard unmatched points (non-NEW_) stay in unmatchedCodes but don't create virtual points here
           // This keeps the master list clean of accidental "orphaned" reports
@@ -313,7 +378,7 @@ export const useSync = (user) => {
       const weeks = [...new Set(Array.from(assignmentsMap.values()).map(a => a.week))].sort((a, b) => {
         const numA = parseInt(String(a).match(/\d+/)?.[0]) || 0;
         const numB = parseInt(String(b).match(/\d+/)?.[0]) || 0;
-        return numA - numB;
+        return numB - numA; // Newest first
       });
       const weeklyStats = weeks.map(w => {
         const assigned = Array.from(assignmentsMap.values()).filter(a => a.week === w);
@@ -333,48 +398,14 @@ export const useSync = (user) => {
         headers_mission: Array.from(headerMapData.keys()).slice(0, 15)
       }));
 
-      // Step 5: Write to local DB
+      // Step 5: Write to local DB with STRICT SLIDING WINDOW
       let transformed = Array.from(assignmentsMap.values());
 
-      // ── PERFORMANCE OPTIMIZATION ──────────────────────────────────────────
-      // Staff users: only keep the 2 most recent weeks to reduce DB size and
-      // improve load times.
-      // Uses date_assigned (not week number) to correctly handle year rollovers
-      // e.g., W52 (Jan 2025) is OLDER than W15 (Apr 2026)
-      // Admin users: keep full history for oversight and analysis.
       if (user.role === 'staff') {
-        // Find the max actual date per week label
-        const weekMaxDate = new Map();
-        transformed.forEach(item => {
-          const weekKey = item.week;
-          const dateStr = item.date_assigned || '';
-          let ts = 0;
-          if (dateStr) {
-            const parts = dateStr.includes('/') ? dateStr.split('/') : dateStr.split('-');
-            if (parts.length >= 3) {
-              // DD/MM/YYYY
-              const [d, m, y] = [parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2])];
-              if (!isNaN(d) && !isNaN(m) && !isNaN(y) && y > 2000) {
-                ts = new Date(y, m - 1, d).getTime();
-              }
-            }
-          }
-          if (!weekMaxDate.has(weekKey) || ts > weekMaxDate.get(weekKey)) {
-            weekMaxDate.set(weekKey, ts);
-          }
-        });
-
-        // Sort by actual date descending → pick top 2 truly most recent weeks
-        const latestTwoWeeks = new Set(
-          [...weekMaxDate.entries()]
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 2)
-            .map(([week]) => week)
-        );
-
+        // STRICT RULE: Keep ONLY the top 2 newest weeks (including 'Done' items)
+        const latestTwoWeeks = new Set(weeks.slice(0, 2));
         transformed = transformed.filter(i => latestTwoWeeks.has(i.week));
-
-        console.log(`[Sync] Staff mode: keeping ${[...latestTwoWeeks].join(', ')} → ${transformed.length} rows`);
+        console.log(`[Sync] Strict sliding window: Keeping only ${[...latestTwoWeeks].join(', ')}`);
       }
       // ─────────────────────────────────────────────────────────────────────
 
@@ -506,33 +537,48 @@ export const useSync = (user) => {
         const resolvedProject = sheetProject || target?.project || localAdhoc?.project || '';
 
         if (!target) {
-          // NEW_ record not yet in posmData (full sync hasn't run) — create virtual entry
-          if (!upperJobCode.includes('NEW_')) return;
-          const la = localAdhoc;
-          if (!la) return; // no local record either, skip
-          updates.push({
-            job_code: la.job_code || jobCodeRaw,
-            brand: la.brand || '',
-            address: la.address || '',
-            pic: la.pic || picName,
-            pic_id: la.pic_id || '',
-            week: la.week || '',
+          // ── ORPHANED/HISTORICAL REPORT HANDLING ──────────────────────────
+          // If no mission matches, it's either NEW_ (Adhoc) or a QC code 
+          // from a deleted week (Historical).
+          if (!upperJobCode.includes('QC') && !upperJobCode.includes('NEW_')) return;
+          
+          // Try to recover week from the report data itself
+          const weekNumVal = getValFast(row, ['WEEKnum', 'WEEK_num', 'Week', 'Tuần', 'Tuan'], headerMapAcc);
+          let reportWeekNum = parseInt(weekNumVal.toString().match(/\d+/)?.[0]) || 0;
+          if (!reportWeekNum && completionDate) {
+            reportWeekNum = getCustomWeekNumber(completionDate.split(' ')[0]);
+          }
+          const reportWeekString = getWeekLabelHelper(reportWeekNum);
+
+          const virtItem = {
+            week: reportWeekString || 'W??',
+            job_code: jobCode,
+            pic: picName,
             status: 'Done',
-            is_adhoc: true,
-            is_virtual: true,
+            isHistorical: true,
             completion_date: completionDate,
-            posm_status: posmStatus || '',
+            posm_status: posmStatus,
             image1: newImage1,
             image2: newImage2,
             acceptance_note: accNote,
-            reported_by: picName,
             project: resolvedProject,
-          });
+            brand: getValFast(row, ['Brand', 'Nhãn hàng'], headerMapAcc) || 'Khác',
+            address: getValFast(row, ['Địa chỉ', 'dia chi', 'Address'], headerMapAcc) || 'N/A',
+            district: getValFast(row, ['Quận', 'Huyện', 'District'], headerMapAcc) || 'Khác',
+          };
+          
+          if (upperJobCode.includes('NEW_') && localAdhoc) {
+            virtItem.brand = localAdhoc.brand || virtItem.brand;
+            virtItem.project = localAdhoc.project || virtItem.project;
+          }
+          
+          updates.push(virtItem);
           return;
         }
 
+        // --- MATCHING MISSION HANDLING ---
         // Skip records that haven't changed (avoid unnecessary writes)
-        if (target.status === 'Done' && target.image1 === newImage1 && target.image1 && target.project === resolvedProject) return;
+        if (target.status === 'Done' && target.image1 === newImage1 && target.project === resolvedProject) return;
 
         updates.push({
           ...target,
@@ -541,7 +587,14 @@ export const useSync = (user) => {
           posm_status: posmStatus || target.posm_status || '',
           image1: newImage1,
           image2: newImage2,
+          is_frame: (() => {
+            const f = (getValFast(row, ['Has_UrBox_Logo', 'Frame', 'Logo', 'Khung'], headerMapAcc) || "").toLowerCase();
+            return f.includes('yes') || f.includes('có') || f.includes('frame');
+          })(),
           acceptance_note: accNote,
+          urgift_status: getValFast(row, ['Hoạt động UrGift', 'Hoat dong UrGift', 'urgift_status', 'Store Status'], headerMapAcc) || target.urgift_status || '',
+          mall_name: getValFast(row, ['Mall_Name', 'Mall Name', 'Mall', 'Trung tâm'], headerMapAcc) || target.mall_name || 'N/A',
+          location_type: getValFast(row, ['Location_Type', 'Location Type', 'Loại hình'], headerMapAcc) || target.location_type || '',
           reported_by: picName,
           project: resolvedProject,
         });

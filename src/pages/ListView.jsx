@@ -162,7 +162,7 @@ const ListView = () => {
           </select>
         </div>
         
-        <div className="flex bg-white/10 p-1.5 rounded-2xl relative z-10 w-full shadow-inner">
+        <div className="flex bg-white/10 p-1.5 rounded-2xl relative z-10 w-full shadow-inner mb-6">
           <button 
             onClick={() => setStatusTab('pending')}
             className={`flex-1 py-3.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${statusTab === 'pending' ? 'bg-white text-indigo-600 shadow-md' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
@@ -176,14 +176,36 @@ const ListView = () => {
             Đã xong
           </button>
         </div>
+
+        {/* Executive Stats Bar */}
+        <div className="flex items-center justify-between px-2 relative z-10">
+            <div className="flex items-center gap-2">
+                <LayoutGrid size={14} className="text-indigo-200" />
+                <span className="text-[10px] font-black text-indigo-100 uppercase tracking-widest">{filteredItems.length} kết quả</span>
+            </div>
+            {filteredItems.length > 0 && (
+                <div className="flex gap-4">
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                        <span className="text-[9px] font-black text-white uppercase tracking-widest">
+                            {Math.round((filteredItems.filter(i => i.status === 'Done').length / filteredItems.length) * 100)}% Phủ
+                        </span>
+                    </div>
+                </div>
+            )}
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-12 space-y-12 pb-32">
+      <div className="flex-1 overflow-y-auto px-6 py-10 space-y-10 pb-32">
         {isLoading ? (
-          <div className="text-center py-20 animate-pulse text-slate-400 font-bold uppercase tracking-widest text-[10px]">Đang nạp dữ liệu...</div>
+          <div className="text-center py-20 flex flex-col items-center gap-4">
+              <RefreshCw className="animate-spin text-indigo-300" size={32} />
+              <p className="text-slate-400 font-black text-[10px] uppercase tracking-widest">Đang tải báo cáo...</p>
+          </div>
         ) : districtGroups.length === 0 ? (
           <div className="p-20 text-center space-y-4">
-             <p className="text-slate-400 font-bold text-[10px] uppercase tracking-widest">Không tìm thấy báo cáo</p>
+              <ImageIcon size={48} className="mx-auto text-slate-200" />
+             <p className="text-slate-400 font-bold text-xs">Không tìm thấy báo cáo nào</p>
           </div>
         ) : (
           <AnimatePresence mode='popLayout'>

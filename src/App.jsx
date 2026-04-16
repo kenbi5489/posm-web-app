@@ -151,6 +151,11 @@ const AdminRoute = ({ children }) => {
   return children;
 };
 
+const Home = () => {
+  const { user } = useAuth();
+  return user?.role === 'admin' ? <OverviewDashboard /> : <Dashboard />;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -158,7 +163,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<Home />} />
             <Route path="map" element={<MapView />} />
             <Route path="list" element={<ListView />} />
             <Route path="detail/:jobCode/:brand" element={<LocationDetail />} />

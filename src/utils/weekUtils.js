@@ -40,3 +40,69 @@ export const getCurrentWeekLabel = () => {
   const num = getCustomWeekNumber(new Date());
   return num > 0 ? `W${num}` : 'W??';
 };
+
+/**
+ * Rule tuyến đường:
+ *   - Thứ 6 (đầu ngày) → Thứ 5 (cuối ngày): hiển thị tuần HIỆN TẠI (tuần N)
+ *   - Khi bắt đầu Thứ 6 mới: tự động chuyển sang tuần N+1
+ *
+ * Vì week chạy từ Thứ 6 → Thứ 5, getCustomWeekNumber() đã tính đúng:
+ *   - Thứ 6 Apr 18 = đầu W16 → trả về 16
+ *   - Thứ 5 Apr 17 = cuối W15 → trả về 15
+ * → Dùng thẳng getCurrentWeekLabel() là đúng rule.
+ *
+ * Nhưng nếu data chưa có tuần đó (admin chưa phân bổ), fallback về tuần
+ * lớn nhất có trong data.
+ */
+export const getActiveRouteWeekNum = () => {
+  return getCustomWeekNumber(new Date());
+};
+
+/**
+ * Helper to generate consistent labels like "W15 (T.4)"
+ */
+export const getWeekLabelHelper = (num, dateReference = null) => {
+  if (!num || num <= 0) return 'W??';
+  
+  let month = 0;
+  if (dateReference) {
+    const d = new Date(dateReference);
+    if (!isNaN(d.getTime())) month = d.getMonth() + 1;
+  }
+  
+  if (month === 0) {
+    // Approx month calculation if date is missing
+    month = Math.min(12, Math.floor((num - 1) / 4.34) + 1);
+  }
+  
+  return `W${num} (T.${month})`;
+};
+
+/**
+ * Returns labels for the current and next weeks strictly based on today's date
+ */
+export const getActiveWeeks = () => {
+  const today = new Date();
+  const currentNum = getCustomWeekNumber(today);
+  
+  // Next week is 7 days from today
+  const nextDate = new Date(today);
+  nextDate.setDate(today.getDate() + 7);
+  const nextNum = getCustomWeekNumber(nextDate);
+  
+  return [
+    getWeekLabelHelper(currentNum, today),
+    getWeekLabelHelper(nextNum, nextDate)
+  ];
+};
+
+/**
+ * Compares two week strings strictly by their week number (WXX)
+ * Example: isSameWeek("W15 (T.3)", "W15 (T.4)") -> true
+ */
+export const isSameWeek = (a, b) => {
+  if (!a || !b) return false;
+  const numA = parseInt(String(a).match(/\d+/)?.[0], 10) || 0;
+  const numB = parseInt(String(b).match(/\d+/)?.[0], 10) || 0;
+  return numA > 0 && numA === numB;
+};

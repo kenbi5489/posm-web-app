@@ -3,7 +3,7 @@ import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Navigation, ChevronRight, LayoutGrid, Map as MapIcon, TriangleAlert, Eye, FileEdit, Plus } from 'lucide-react';
-import { getCurrentWeekLabel } from '../utils/weekUtils';
+import { getCurrentWeekLabel, getActiveRouteWeekNum, getCustomWeekNumber, getWeekLabelHelper, isSameWeek } from '../utils/weekUtils';
 import { Link } from 'react-router-dom';
 
 import ReportModal from '../components/ReportModal';
@@ -45,30 +45,34 @@ const MapView = () => {
   // Map checkins for quick lookup
   const visitedSet = useMemo(() => new Set(checkins.map(c => c.job_code)), [checkins]);
 
-  // Current Week logic (Prioritize current calendar week, fallback to latest)
+  // ── TUYẾN ĐƯỜNG: Rule tuần hiển thị ──────────────────────────────────────
+  // Tuần chạy từ Thứ 6 → Thứ 5 (theo công ty)
+  // → getActiveRouteWeekNum() trả về đúng số tuần hiện tại theo rule này:
+  //     Thứ 6 Apr 18 → W16 (tuần mới bắt đầu)
+  //     Thứ 5 Apr 17 → W15 (tuần cũ vẫn đang chạy đến cuối ngày)
+  // Nếu data chưa có tuần hiện tại (admin chưa phân bổ) → fallback tuần lớn nhất có sẵn
   const latestWeek = useMemo(() => {
-    const currentLabel = getCurrentWeekLabel();
-    const weeks = [...new Set(allItems.map(i => i.week).filter(Boolean))];
-    const currentWeekMatch = weeks.find(w => w.startsWith(currentLabel));
-    if (currentWeekMatch) return currentWeekMatch;
+    // Luôn luôn hiển thị tuần hiện tại dựa trên ngày hôm nay (Thứ 6 -> Thứ 5)
+    // KHÔNG tự ý nhảy sang tuần sau nếu hôm nay vẫn là Thứ 5.
+    const today = new Date();
+    const currentNum = getCustomWeekNumber(today);
+    const activeLabelCode = getWeekLabelHelper(currentNum, today);
 
-    const filtered = weeks.filter(w => {
-      const n = parseInt(String(w).match(/\d+/)?.[0], 10) || 0;
-      return n > 0;
-    });
-    return filtered.sort((a, b) => (parseInt(String(a).match(/\d+/)?.[0]) || 0) - (parseInt(String(b).match(/\d+/)?.[0]) || 0)).slice(-1)[0] || '';
+    return activeLabelCode;
   }, [allItems]);
 
   // Group by District
   const districtGroups = useMemo(() => {
     const groups = {};
-    const filtered = allItems.filter(i => i.week === latestWeek);
-
+    
     // Admin/Staff filter
-    let targetData = filtered;
+    let targetData = allItems.filter(i => isSameWeek(i.week, latestWeek));
     if (selectedStaff || user?.role === 'staff') {
       const targetId = (selectedStaff?.user_id || user?.user_id || '').toString().toLowerCase();
-      targetData = filtered.filter(i => String(i.pic_id || '').toLowerCase() === targetId);
+      targetData = allItems.filter(i => 
+        isSameWeek(i.week, latestWeek) && 
+        String(i.pic_id || '').toLowerCase() === targetId
+      );
     }
 
     targetData.forEach(item => {

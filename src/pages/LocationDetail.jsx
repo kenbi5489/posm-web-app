@@ -119,24 +119,41 @@ const LocationDetail = () => {
         )}
 
         {/* Main Details Card (Full Info Request) */}
-        <div className="bg-white rounded-[3rem] p-10 shadow-soft space-y-8 border border-slate-100/50">
+        <div className="bg-white rounded-[3rem] p-8 shadow-soft space-y-8 border border-slate-100/50 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-6 opacity-5">
+            <Trophy size={80} />
+          </div>
           <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mb-4">Thông tin đầy đủ</h3>
-          <DetailRow icon={<MapPin className="text-indigo-500" />} label="Địa chỉ" value={item.address} />
-          <DetailRow icon={<Hash className="text-indigo-500" />} label="Mã QC" value={item.job_code} />
-          <DetailRow icon={<Briefcase className="text-indigo-500" />} label="tk Portal" value={item.portal_id || 'N/A'} />
-          <DetailRow
-            icon={<CheckCircle size={20} className="text-indigo-500" />}
-            label="Trạng thái POSM"
-            value={(() => {
-              const status = item.posm_status || acceptance?.posm_status || item.posm_status_master || 'Chưa báo cáo';
-              if (item.status === 'Done') {
-                if (status.toLowerCase().includes('không posm')) return 'Không POSM';
-                if (status.toLowerCase().includes('có posm')) return 'Có POSM';
-                return status; // Fallback
-              }
-              return 'Chưa báo cáo';
-            })()}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <DetailRow icon={<MapPin className="text-indigo-500" />} label="Địa chỉ" value={item.address} />
+            <DetailRow icon={<Hash className="text-indigo-500" />} label="Mã QC" value={item.job_code} />
+            <DetailRow icon={<Briefcase className="text-indigo-500" />} label="Tài khoản Portal" value={item.portal_id || 'N/A'} />
+            <DetailRow
+                icon={<CheckCircle size={20} className="text-indigo-500" />}
+                label="Trạng thái POSM"
+                value={(() => {
+                const status = item.posm_status || acceptance?.posm_status || item.posm_status_master || 'Chưa báo cáo';
+                if (item.status === 'Done') {
+                    if (status.toLowerCase().includes('không posm')) return 'Không POSM';
+                    if (status.toLowerCase().includes('có posm')) return 'Có POSM';
+                    return status;
+                }
+                return 'Đang chờ...';
+                })()}
+            />
+          </div>
+          
+          <div className="pt-6 border-t border-slate-50 flex items-center gap-4">
+            <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${isMall(item) ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
+                {isMall(item) ? 'Phân loại: MALL' : 'Phân loại: ĐƯỜNG PHỐ'}
+            </div>
+            {item.pic && (
+                <div className="flex items-center gap-2 text-slate-400">
+                    <UserCircle size={14} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">{item.pic}</span>
+                </div>
+            )}
+          </div>
         </div>
 
         {/* Acceptance Info (Enhanced for Request) */}
@@ -146,31 +163,44 @@ const LocationDetail = () => {
             animate={{ y: 0, opacity: 1 }}
             className="bg-white rounded-[3rem] p-10 shadow-soft space-y-8 border border-slate-100/50"
           >
-            <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] flex items-center gap-2">
-              <CheckCircle className="text-green-500" size={14} />
-              Thông tin nghiệm thu
-            </h3>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] flex items-center gap-2">
+                <CheckCircle className="text-emerald-500" size={14} />
+                Báo cáo thực tế
+                </h3>
+                <span className="text-[9px] font-black bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg">VERIFIED</span>
+            </div>
 
             <div className="space-y-8">
-              <DetailRow icon={<MessageCircle className="text-indigo-400" />} label="Ghi chú & PIC" value={`${acceptance?.note || item.acceptance_note || 'Không có ghi chú'} - ${item.reported_by || item.pic || 'N/A'}`} />
+              <DetailRow icon={<MessageCircle className="text-indigo-400" />} label="Ghi chú & PIC" value={`${acceptance?.note || item.acceptance_note || 'Không có ghi chú'}`} />
 
-              <div className="pt-6 border-t border-slate-50">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Hình ảnh báo cáo</p>
-                <div className="flex gap-4">
+              <div className="pt-8 border-t border-slate-50">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Hình ảnh thi công</p>
+                <div className="grid grid-cols-2 gap-4">
                   {(acceptance?.image1 || item.image1) ? (
-                    <a href={acceptance?.image1 || item.image1} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
-                      <LinkIcon size={14} /> Ảnh 1
-                    </a>
+                    <div className="space-y-3">
+                        <div className="aspect-video bg-slate-100 rounded-2xl overflow-hidden border border-slate-100">
+                            <img src={acceptance?.image1 || item.image1} alt="Báo cáo 1" className="w-full h-full object-cover" />
+                        </div>
+                        <a href={acceptance?.image1 || item.image1} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
+                        <LinkIcon size={12} /> Xem ảnh 1
+                        </a>
+                    </div>
                   ) : (
-                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Ảnh 1</div>
+                    <div className="aspect-video bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 1</div>
                   )}
 
                   {(acceptance?.image2 || item.image2) ? (
-                    <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="flex-1 bg-slate-50 hover:bg-indigo-50 text-indigo-600 font-black py-5 rounded-2xl text-center text-xs uppercase tracking-widest active:scale-95 transition-all border border-slate-100 flex items-center justify-center gap-2">
-                      <LinkIcon size={14} /> Ảnh 2
-                    </a>
+                    <div className="space-y-3">
+                        <div className="aspect-video bg-slate-100 rounded-2xl overflow-hidden border border-slate-100">
+                            <img src={acceptance?.image2 || item.image2} alt="Báo cáo 2" className="w-full h-full object-cover" />
+                        </div>
+                        <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
+                        <LinkIcon size={12} /> Xem ảnh 2
+                        </a>
+                    </div>
                   ) : (
-                    <div className="flex-1 py-5 bg-slate-200/20 text-slate-300 font-black rounded-2xl text-center text-[10px] uppercase border border-dashed border-slate-200">Không có Ảnh 2</div>
+                    <div className="aspect-video bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 2</div>
                   )}
                 </div>
               </div>
