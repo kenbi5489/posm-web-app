@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Clock, RefreshCw, Trophy, Users, CheckCircle2, ShieldAlert, AlertTriangle, BadgeInfo
 } from 'lucide-react';
@@ -6,6 +6,8 @@ import { motion } from 'framer-motion';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { useSync } from '../hooks/useSync';
+import { getCustomWeekNumber, getWeekLabelHelper } from '../utils/weekUtils';
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TỔNG QUAN POSM — Executive Overview Dashboard
@@ -150,6 +152,36 @@ const OverviewDashboard = () => {
     load();
   }, [lastSync]);
 
+  // Auto-select the best default week whenever data reloads (lastSync changes).
+  // Reset ref each time lastSync changes so a fresh sync always re-picks the right week.
+  const autoSelectedRef = useRef(false);
+  useEffect(() => { autoSelectedRef.current = false; }, [lastSync]);
+  useEffect(() => {
+    if (autoSelectedRef.current || allData.length === 0) return;
+    autoSelectedRef.current = true;
+
+    const today = new Date();
+    const currentNum = getCustomWeekNumber(today);
+    // Company week runs Fri→Thu. Thursday is last day of outgoing week,
+    // but staff already work on next-week data → look ahead by 1.
+    const isThursday = today.getDay() === 4;
+    const effectiveNum = isThursday ? currentNum + 1 : currentNum;
+
+    const weeks = [...new Set(allData.map(i => i.week).filter(Boolean))].sort((a, b) =>
+      (parseInt(String(a).match(/\d+/)?.[0]) || 0) - (parseInt(String(b).match(/\d+/)?.[0]) || 0)
+    );
+    // Priority 1: exact match on effective current week (e.g. W16)
+    let match = weeks.find(w => (parseInt(String(w).match(/\d+/)?.[0]) || 0) === effectiveNum);
+    // Priority 2: latest week <= effectiveNum (most recent past week)
+    if (!match) {
+      const past = weeks.filter(w => (parseInt(String(w).match(/\d+/)?.[0]) || 0) < effectiveNum);
+      match = past[past.length - 1];
+    }
+    // Priority 3: all weeks are future — pick earliest (W16 before W17)
+    if (!match) match = weeks[0];
+    if (match) setWeekFilter(match);
+  }, [allData]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const { filtered, filteredAdhoc, uniqueWeeks, uniqueBrands, allStaff, syncedAdhocs } = useMemo(() => {
     const activeStaff = selectedStaff || (user?.role === 'staff' ? user : null);
     const pidNorm = String(activeStaff?.user_id || '').trim().toLowerCase();
@@ -181,10 +213,15 @@ const OverviewDashboard = () => {
     });
 
     const staffSet = [...new Set(allData.map(i => i.pic).filter(Boolean))].sort();
+    const _todayNum = getCustomWeekNumber(new Date());
+    const _effNum = new Date().getDay() === 4 ? _todayNum + 1 : _todayNum;
     const uWeeks = [...new Set(allData.map(i => i.week).filter(Boolean))].sort((a,b) => {
         const na = parseInt(String(a).match(/\d+/)?.[0]) || 0;
         const nb = parseInt(String(b).match(/\d+/)?.[0]) || 0;
-        return nb - na; // Newest first
+        // Current effective week always first, then descending (newest → oldest)
+        if (na === _effNum) return -1;
+        if (nb === _effNum) return 1;
+        return nb - na;
     });
     const uBrands = [...new Set(allData.map(i => i.brand).filter(Boolean))].sort();
 

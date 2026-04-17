@@ -52,13 +52,8 @@ const MapView = () => {
   //     Thứ 5 Apr 17 → W15 (tuần cũ vẫn đang chạy đến cuối ngày)
   // Nếu data chưa có tuần hiện tại (admin chưa phân bổ) → fallback tuần lớn nhất có sẵn
   const latestWeek = useMemo(() => {
-    // Luôn luôn hiển thị tuần hiện tại dựa trên ngày hôm nay (Thứ 6 -> Thứ 5)
-    // KHÔNG tự ý nhảy sang tuần sau nếu hôm nay vẫn là Thứ 5.
-    const today = new Date();
-    const currentNum = getCustomWeekNumber(today);
-    const activeLabelCode = getWeekLabelHelper(currentNum, today);
-
-    return activeLabelCode;
+    // Sếp yêu cầu ưu tiên mặc định cứng là W16 để nhân viên không phải dò tìm
+    return "W16 (T.4)";
   }, [allItems]);
 
   // Group by District

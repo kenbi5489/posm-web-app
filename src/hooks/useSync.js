@@ -206,6 +206,7 @@ export const useSync = (user) => {
           date_assigned: getValFast(row, ['Ngày chia', 'Ngay chia', 'Ngày', 'Date'], headerMapData),
           brand: brandMatch,
           job_code: jobCode,
+          job_code_raw: jobCodeRaw.toString().trim(),
           address: getValFast(row, ['Địa chỉ', 'Dia chi', 'Address'], headerMapData),
           district: getValFast(row, ['Quận', 'Quan', 'District', 'Huyện'], headerMapData),
           city: getValFast(row, ['Thành Phố', 'Thanh Pho', 'City', 'Tỉnh'], headerMapData),
@@ -406,6 +407,34 @@ export const useSync = (user) => {
         const latestTwoWeeks = new Set(weeks.slice(0, 2));
         transformed = transformed.filter(i => latestTwoWeeks.has(i.week));
         console.log(`[Sync] Strict sliding window: Keeping only ${[...latestTwoWeeks].join(', ')}`);
+      }
+      // ------ OPTIMISTIC UI PRESERVATION ------
+      // Do not overwrite "Done" status with stale "On-going" status from Google Sheets
+      // if the report was completed locally within the last 30 minutes. This provides
+      // full resilience against Google's CSV export caching and synchronization lag.
+      const currentPosmData = await db.posmData.toArray();
+      const optimisticMap = new Map();
+      const now = Date.now();
+      const GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
+
+      currentPosmData.forEach(item => {
+        if (item.status === 'Done' && item.completed_at_local) {
+          if (now - item.completed_at_local < GRACE_PERIOD_MS) {
+            const jk = String(item.job_code || '').toUpperCase().replace(/[^A-Z0-9_]/g, '').trim();
+            if (jk) optimisticMap.set(jk, item);
+          }
+        }
+      });
+      
+      if (optimisticMap.size > 0) {
+        transformed = transformed.map(t => {
+          const tk = String(t.job_code || '').toUpperCase().replace(/[^A-Z0-9_]/g, '').trim();
+          if (tk && optimisticMap.has(tk)) {
+            console.log(`[Sync] Preserving optimistic state for ${t.job_code} (Grace period)`);
+            return { ...t, ...optimisticMap.get(tk) }; // Override stale sheet data with local Done state
+          }
+          return t;
+        });
       }
       // ─────────────────────────────────────────────────────────────────────
 
@@ -624,14 +653,44 @@ export const useSync = (user) => {
     }
   }, [pullData]);
 
+  // Background processor for guaranteed delivery
+  const flushQueue = useCallback(async () => {
+    try {
+      const q = await db.syncQueue.toArray();
+      if (q.length === 0) return;
+      console.log(`[SyncQueue] Flushing ${q.length} pending reports...`);
+      for (const task of q) {
+        if (task.type === 'REPORT_POSM') {
+          // Send to GAS
+          await fetch("https://script.google.com/macros/s/AKfycbxCo0nA6Ikxfuucow1-v4MViGX04UT8s5oiEIUI6GFAN9ESftVW2Wql3w7XRn474JAvDQ/exec", {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(task.payload)
+          });
+          // Remove from queue ONLY if fetch succeeds (no-cors always resolves unless network failure)
+          await db.syncQueue.delete(task.id);
+          console.log(`[SyncQueue] Uploaded and cleared task ${task.id}`);
+        }
+      }
+    } catch (err) {
+      console.warn('[SyncQueue] Flush failed, will retry next tick:', err);
+    }
+  }, []);
+
   // Auto-sync: full sync on login (every 20 min), acceptance-only every 3 min
   useEffect(() => {
     if (!user) return;
     pullData();
+    // Delay flush queue to avoid concurrently hitting GAS with pullData on mount
+    setTimeout(flushQueue, 3000); 
+    
+    // Background interval to keep pushing queue even while app is idle
+    const queueInterval = setInterval(flushQueue, 15000); // Check every 15s
     const fullInterval = setInterval(pullData, FULL_SYNC_INTERVAL_MS);
     const accInterval  = setInterval(pullAcceptanceOnly, ACCEPTANCE_SYNC_INTERVAL_MS);
-    return () => { clearInterval(fullInterval); clearInterval(accInterval); };
-  }, [user?.user_id, pullData, pullAcceptanceOnly]);
+    return () => { clearInterval(queueInterval); clearInterval(fullInterval); clearInterval(accInterval); };
+  }, [user?.user_id, pullData, pullAcceptanceOnly, flushQueue]);
 
   return { syncing, pullData, clearAndResync, pullAcceptanceOnly };
 };

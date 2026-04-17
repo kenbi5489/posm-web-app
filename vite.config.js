@@ -45,13 +45,16 @@ export default defineConfig({
         ]
       },
       workbox: {
+        cacheId: 'posm-tracker-v20260417-04',  // ← bump this to force SW cache bust
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/docs\.google\.com\/spreadsheets\/d\/.*\/export\?format=csv&gid=.*/i,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'google-sheets-data',
+              cacheName: 'google-sheets-data-v4',
               expiration: {
                 maxEntries: 10,
                 maxAgeSeconds: 60 * 60 * 24 // 24 hours

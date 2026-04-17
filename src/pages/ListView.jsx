@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
-import { Search, Eye, Calendar, LayoutGrid, CheckCircle, Image as ImageIcon, MapPin, Hash, ExternalLink, Camera, Zap } from 'lucide-react';
+import { Search, Eye, Calendar, LayoutGrid, CheckCircle, Image as ImageIcon, MapPin, Hash, ExternalLink, Camera, Zap, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -137,9 +137,9 @@ const ListView = () => {
         <div className="relative mb-6">
            <div className="flex items-center gap-2 mb-2 opacity-60">
               <CheckCircle size={14} className="text-white" />
-              <span className="text-[10px] font-black text-white uppercase tracking-widest">Chi tiết biểu mẫu</span>
+              <span className="text-[10px] font-black text-white uppercase tracking-widest">Tuyến đường của bạn</span>
            </div>
-           <h2 className="text-2xl font-black text-white tracking-tight uppercase">BÁO CÁO CHI TIẾT</h2>
+           <h2 className="text-2xl font-black text-white tracking-tight uppercase">DANH SÁCH TUYẾN ĐƯỜNG</h2>
         </div>
         <div className="relative mb-6">
           <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-white/40" size={20} />
@@ -270,13 +270,13 @@ const ListItem = ({ item }) => {
   return (
     <motion.div 
       layout 
-      className={`bg-white p-8 rounded-[3rem] shadow-soft border ${item.priority && !isDone ? 'border-amber-200' : 'border-slate-50'} transition-all relative overflow-hidden`}
+      className={`bg-white p-8 rounded-[3rem] shadow-soft border ${item.priority ? 'border-amber-200' : 'border-slate-50'} transition-all relative overflow-hidden`}
     >
-      {item.priority && !isDone && (
+      {item.priority && (
         <div className="absolute top-0 right-12 transform -translate-y-1">
-          <div className="bg-amber-500 text-white px-3 py-1.5 rounded-b-xl flex items-center gap-1 shadow-sm">
+          <div className={`${isDone ? 'bg-amber-400' : 'bg-amber-500'} text-white px-3 py-1.5 rounded-b-xl flex items-center gap-1 shadow-sm`}>
             <Zap size={10} className="fill-white" />
-            <span className="text-[8px] font-black uppercase tracking-widest">Ưu tiên</span>
+            <span className="text-[8px] font-black uppercase tracking-widest">{isDone ? '★ Ưu tiên' : 'Ưu tiên'}</span>
           </div>
         </div>
       )}
@@ -285,11 +285,11 @@ const ListItem = ({ item }) => {
         <div className="flex-1 min-w-0 pr-4">
             <div className="flex items-center gap-2 mb-2">
               <h4 className="text-lg font-black text-slate-800 tracking-tight uppercase">{item.brand || 'POSM Point'}</h4>
-              {item.priority && !isDone && <Zap size={14} className="text-amber-500 fill-amber-500" />}
+              {item.priority && <Zap size={14} className="text-amber-500 fill-amber-500" />}
             </div>
             <div className="flex items-center gap-2 mb-4"><MapPin size={12} className="text-slate-300"/><p className="text-xs font-bold text-slate-400 line-clamp-1">{item.address}</p></div>
            <div className="flex flex-wrap items-center gap-2">
-              <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase tracking-widest ${isDone ? 'bg-indigo-600 text-white border-indigo-700' : item.priority ? 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+              <span className={`text-[9px] font-black px-3 py-1.5 rounded-xl border uppercase tracking-widest ${isDone && item.priority ? 'bg-indigo-600 text-white border-amber-400 ring-2 ring-amber-400 ring-offset-1' : isDone ? 'bg-indigo-600 text-white border-indigo-700' : item.priority ? 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                 {isDone ? 'Đã báo cáo' : 'Chưa làm'}
               </span>
               <span className="text-[9px] font-black bg-slate-50 text-slate-400 px-3 py-1.5 rounded-xl border border-slate-100 uppercase tracking-widest"><Hash size={10} className="inline mr-1" />{item.job_code}</span>
@@ -299,7 +299,7 @@ const ListItem = ({ item }) => {
         </div>
         <Link 
           to={`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`} 
-          className={`w-14 h-14 text-white rounded-2xl flex flex-col items-center justify-center transition-all active:scale-90 shadow-lg ${isDone ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' : item.priority ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-emerald-500 hover:bg-emerald-600 shadow-[0_10px_20px_-10px_rgba(16,185,129,0.5)]'}`}
+          className={`w-14 h-14 text-white rounded-2xl flex flex-col items-center justify-center transition-all active:scale-90 shadow-lg ${isDone && item.priority ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : isDone ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' : item.priority ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-emerald-500 hover:bg-emerald-600 shadow-[0_10px_20px_-10px_rgba(16,185,129,0.5)]'}`}
         >
           {isDone ? <Eye size={24} /> : <><Camera size={20} /><span className="text-[8px] font-black mt-0.5">NỘP</span></>}
         </Link>

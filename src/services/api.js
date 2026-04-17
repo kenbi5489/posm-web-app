@@ -8,7 +8,7 @@ export const GID_ACCEPTANCE = '511717734';
 
 // Using export?format=csv instead of gviz/tq because gviz/tq respects active sheet filters
 // which caused only filtered rows (e.g., W15 = 375 rows) to be returned instead of all 4721 rows.
-const getCsvUrl = (gid) => `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${gid}`;
+const getCsvUrl = (gid) => `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/export?format=csv&gid=${gid}&t=${Date.now()}`;
 
 export const fetchSheetData = async (gid, fallbackData) => {
   try {

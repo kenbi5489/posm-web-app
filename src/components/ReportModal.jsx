@@ -245,13 +245,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         image1Type: images?.[0]?.type || "image/jpeg",
         image2: images?.[1]?.base64 || "",
         image2Name: images?.[1]?.name || "image2.jpg",
-        image2Type: images?.[1]?.type || "image/jpeg",
-        
-        // Caching info for later retrieval
-        mallName: item.mall_name || "N/A",
-        locationType: item.location_type || "N/A",
-        district: item.district || "N/A",
-        city: item.city || "N/A"
+        image2Type: images?.[1]?.type || "image/jpeg"
       };
 
       // ── OPTIMISTIC UPDATE ─────────────────────────────────────────────
@@ -263,6 +257,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             status: 'Done',
             posm_status: mappedPosmStatus,
             project: selectedProject,
+            completed_at_local: Date.now()
           });
           triggerLocalRefresh(); // Notify Dashboard/ListView to re-render immediately
         } catch (dbErr) {
@@ -270,18 +265,26 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         }
       }
 
-      // 2. Show success immediately & notify parent
+      // 3. Send to GAS synchronously to guarantee delivery BEFORE UI closes
+      setLoading(true);
+      try {
+        await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        setLoading(false);
+        throw new Error('Kết nối mạng không ổn định, tải lên bị lỗi. Vui lòng thử lại!');
+      }
+
+      setLoading(false);
+
+      // 4. Show success and notify parent (this triggers the UI updates and navigation)
       setSuccess(true);
       if (onSuccess) onSuccess({ ...item, status: 'Done', posm_status: mappedPosmStatus });
       setTimeout(() => onClose(), 1500);
-
-      // 3. Send to GAS in background (fire & forget) - no need to await
-      fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload)
-      }).catch(err => console.warn('[GAS Background] Send failed:', err));
       // ─────────────────────────────────────────────────────────────────
 
     } catch (err) {

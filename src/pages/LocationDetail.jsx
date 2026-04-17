@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft, Link as LinkIcon, MessageCircle, TriangleAlert, FileEdit } from 'lucide-react';
+import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft, Link as LinkIcon, MessageCircle, TriangleAlert, FileEdit, Trophy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import ReportModal from '../components/ReportModal';
+
+const MALL_KEYWORDS = ['aeon', 'vincom', 'lotte', 'big c', 'bigc', 'coopxtra', 'coopmart',
+  'van hanh', 'vạn hạnh', 'gigamall', 'thiso', 'crescent', 'vivo city', 'sc vivo',
+  'tttm', 'trung tâm thương mại', 'trung tam thuong mai', 'parkson', 'nowzone',
+  'sense city', 'pandora', 'estella'];
+
+const isMall = (rec) => {
+  if (!rec) return false;
+  const mn = (rec.mall_name || '').trim();
+  if (mn && mn !== 'N/A' && mn !== 'Standalone' && mn !== '') return true;
+  const type = (rec.location_type || '').toLowerCase();
+  if (type === 'mall' || type.includes('ttm') || type.includes('trung tâm')) return true;
+  const addr = (rec.address || '').toLowerCase();
+  return MALL_KEYWORDS.some(kw => addr.includes(kw));
+};
 
 const LocationDetail = () => {
   const { jobCode, brand } = useParams();
@@ -47,8 +62,8 @@ const LocationDetail = () => {
     setItem(updatedItem);
     // Notify dashboard to re-fetch from IndexedDB immediately
     triggerLocalRefresh();
-    // Navigate to dashboard after 2s (lets the modal success animation complete first)
-    setTimeout(() => navigate('/'), 2000);
+    // Navigate to dashboard slightly faster (1000ms instead of 2000ms) to feel more instant
+    setTimeout(() => navigate('/'), 1000);
   };
 
   const handleIncomplete = async () => {
@@ -175,32 +190,26 @@ const LocationDetail = () => {
               <DetailRow icon={<MessageCircle className="text-indigo-400" />} label="Ghi chú & PIC" value={`${acceptance?.note || item.acceptance_note || 'Không có ghi chú'}`} />
 
               <div className="pt-8 border-t border-slate-50">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Hình ảnh thi công</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Ảnh nghiệm thu</p>
                 <div className="grid grid-cols-2 gap-4">
                   {(acceptance?.image1 || item.image1) ? (
                     <div className="space-y-3">
-                        <div className="aspect-video bg-slate-100 rounded-2xl overflow-hidden border border-slate-100">
-                            <img src={acceptance?.image1 || item.image1} alt="Báo cáo 1" className="w-full h-full object-cover" />
-                        </div>
                         <a href={acceptance?.image1 || item.image1} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
                         <LinkIcon size={12} /> Xem ảnh 1
                         </a>
                     </div>
                   ) : (
-                    <div className="aspect-video bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 1</div>
+                    <div className="bg-slate-50 text-slate-300 rounded-2xl py-4 flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 1</div>
                   )}
 
                   {(acceptance?.image2 || item.image2) ? (
                     <div className="space-y-3">
-                        <div className="aspect-video bg-slate-100 rounded-2xl overflow-hidden border border-slate-100">
-                            <img src={acceptance?.image2 || item.image2} alt="Báo cáo 2" className="w-full h-full object-cover" />
-                        </div>
                         <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
                         <LinkIcon size={12} /> Xem ảnh 2
                         </a>
                     </div>
                   ) : (
-                    <div className="aspect-video bg-slate-50 text-slate-300 rounded-2xl flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 2</div>
+                    <div className="bg-slate-50 text-slate-300 rounded-2xl py-4 flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 2</div>
                   )}
                 </div>
               </div>

@@ -255,7 +255,7 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4 mt-8">
-          <Link to="/list" className="bg-indigo-600 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center shadow-lg shadow-indigo-200">
+          <Link to="/map" className="bg-indigo-600 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center shadow-lg shadow-indigo-200">
             Tuyến đường
           </Link>
           <button onClick={() => setIsReportModalOpen(true)} className="bg-emerald-500 text-white font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center shadow-lg shadow-emerald-200">
@@ -264,44 +264,13 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-2 pt-4">
-        <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Hệ thống POSM</h4>
-        <button onClick={() => setShowDiag(!showDiag)} className="text-[10px] font-black text-slate-300 uppercase underline decoration-2 underline-offset-4">
-          {showDiag ? 'Thu gọn' : 'Chẩn đoán'}
-        </button>
-      </div>
-
-      {showDiag && diag && (
-        <div className="bg-slate-50 border border-slate-100 p-8 rounded-[2.5rem] space-y-6">
-          <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-            <Zap size={12} /> Chẩn đoán hệ thống
-          </h3>
-          <div className="grid grid-cols-2 gap-8">
-            <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">User Detected</p>
-              <p className="text-[11px] font-black text-slate-700">{diag.user}</p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Rows in DB</p>
-              <p className="text-[11px] font-black text-slate-700">{diag.total}</p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Matched for User</p>
-              <p className="text-[11px] font-black text-indigo-600">{diag.userMatches} items</p>
-            </div>
-            <div>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Weeks in DB</p>
-              <p className="text-[11px] font-black text-slate-700 break-words">{diag.weeks}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isReportModalOpen && (
         <ReportModal 
           isOpen={isReportModalOpen} 
           onClose={() => setIsReportModalOpen(false)} 
-          initialData={{ is_adhoc: true, week: getCurrentWeekLabel() }} 
+          item={{ isAdHoc: true, week: getCurrentWeekLabel() }} 
+          user={user}
         />
       )}
     </div>
