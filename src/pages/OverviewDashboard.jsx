@@ -453,20 +453,27 @@ const OverviewDashboard = () => {
     // ── TOP 3 MALLS ──────────────────────────────────────────────────────────
     const mallCoverageMap = {};
     mallRecords.forEach(r => {
-      if (r.status === 'Done') {
-        const mn = (r.mall_name && r.mall_name !== 'N/A' && r.mall_name !== 'Standalone') ? r.mall_name.trim() : (r.address || 'Unknown Mall').trim();
-        if (!mallCoverageMap[mn]) {
-          mallCoverageMap[mn] = { total: 0, hasPosm: 0 };
-        }
-        mallCoverageMap[mn].total++;
-        
-        const s = stripAccents(r.posm_status || '');
-        const hasP = (s.startsWith('co') && !s.startsWith('cong') && !s.startsWith('con ') && !s.startsWith('copy')) ||
-             s === 'yes' || s === 'ok' || s === 'dat' ||
-             s.includes('co posm') || s.includes('yes posm') || s.includes('co khung');
-        if (hasP) mallCoverageMap[mn].hasPosm++;
+      // Dùng tên Mall nếu có, nếu không fallback về địa chỉ
+      const mn = (r.mall_name && r.mall_name !== 'N/A' && r.mall_name !== 'Standalone') 
+                  ? r.mall_name.trim() 
+                  : (r.address || 'Unknown Mall').trim();
+                  
+      if (!mallCoverageMap[mn]) {
+        mallCoverageMap[mn] = { total: 0, hasPosm: 0 };
       }
+      
+      // Đếm TẤT CẢ các điểm phân bổ vào total (cả Done và Ongoing) để đúng mẫu số
+      mallCoverageMap[mn].total++;
+      
+      // Tính hasPosm giống y hệt KPI tổng của Mall
+      const s = stripAccents(r.posm_status || '');
+      const hasP = (s.startsWith('co') && !s.startsWith('cong') && !s.startsWith('con ') && !s.startsWith('copy')) ||
+           s === 'yes' || s === 'ok' || s === 'dat' ||
+           s.includes('co posm') || s.includes('yes posm') || s.includes('co khung');
+           
+      if (hasP) mallCoverageMap[mn].hasPosm++;
     });
+
     const topMalls = Object.entries(mallCoverageMap)
       .map(([name, stats]) => ({
         name,
@@ -475,7 +482,8 @@ const OverviewDashboard = () => {
         rate: stats.total > 0 ? Math.round((stats.hasPosm / stats.total) * 100) : 0
       }))
       .filter(m => m.total > 0)
-      .sort((a, b) => b.rate - a.rate || b.total - a.total)
+      // Sort: Ưu tiên số lượng điểm có POSM trước (để mall lớn lên top), sau đó mới tới tỷ lệ %
+      .sort((a, b) => b.hasPosm - a.hasPosm || b.rate - a.rate || b.total - a.total)
       .slice(0, 3);
 
     // ── PIC PASS RATES ───────────────────────────────────────────────────────
