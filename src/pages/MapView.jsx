@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle, Navigation, ChevronRight, LayoutGrid, Map as MapIcon, TriangleAlert, Eye, FileEdit, Plus } from 'lucide-react';
 import { getCurrentWeekLabel, getActiveRouteWeekNum, getCustomWeekNumber, getWeekLabelHelper, isSameWeek } from '../utils/weekUtils';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import ReportModal from '../components/ReportModal';
 
@@ -12,6 +12,7 @@ import ReportModal from '../components/ReportModal';
 
 const MapView = () => {
   const { user, selectedStaff, lastSync } = useAuth();
+  const navigate = useNavigate();
   const [allItems, setAllItems] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [dataVersion, setDataVersion] = useState(0);
@@ -173,7 +174,8 @@ const MapView = () => {
                     {group.items.map((item, i) => (
                       <div
                         key={item.job_code}
-                        className={`p-5 rounded-[1.8rem] shadow-soft border transition-all ${item.isDone ? 'bg-slate-50/50 border-slate-100 opacity-60' : 'bg-white border-slate-50'}`}
+                        onClick={() => navigate(`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`)}
+                        className={`p-5 rounded-[1.8rem] shadow-soft border transition-all cursor-pointer hover:border-indigo-300 hover:shadow-md ${item.isDone ? 'bg-slate-50/50 border-slate-100 opacity-60' : 'bg-white border-slate-50'}`}
                       >
                         <div className="flex justify-between items-start gap-4">
                           <div className="min-w-0">
@@ -194,6 +196,7 @@ const MapView = () => {
                               </div>
                               <Link
                                 to={`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`}
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center active:scale-95 transition-all"
                               >
                                 <ChevronRight size={16} />
@@ -202,13 +205,13 @@ const MapView = () => {
                           ) : (
                             <div className="flex gap-2 shrink-0">
                               <button
-                                onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lng}`, '_blank')}
+                                onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${item.lat},${item.lng}`, '_blank'); }}
                                 className="w-10 h-10 bg-indigo-600 text-white rounded-xl shadow-premium-indigo flex items-center justify-center active:scale-95 transition-all"
                               >
                                 <Navigation size={18} />
                               </button>
                               <button
-                                onClick={() => setEditingItem(item)}
+                                onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
                                 className="w-10 h-10 bg-white text-indigo-600 border border-indigo-100 rounded-xl flex items-center justify-center shadow-sm active:scale-95 transition-all hover:bg-indigo-50"
                               >
                                 <FileEdit size={18} />

@@ -198,31 +198,12 @@ const OverviewDashboard = () => {
   // Reset ref each time lastSync changes so a fresh sync always re-picks the right week.
   const autoSelectedRef = useRef(false);
   useEffect(() => { autoSelectedRef.current = false; }, [lastSync]);
+  // Auto-select logic removed to default to 'All' weeks per user request
   useEffect(() => {
-    if (autoSelectedRef.current || allData.length === 0) return;
+    if (allData.length === 0) return;
+    // We keep the ref update if needed for other logic, but don't setWeekFilter
     autoSelectedRef.current = true;
-
-    const today = new Date();
-    const currentNum = getCustomWeekNumber(today);
-    // Company week runs Fri→Thu. Thursday is last day of outgoing week,
-    // but staff already work on next-week data → look ahead by 1.
-    const isThursday = today.getDay() === 4;
-    const effectiveNum = isThursday ? currentNum + 1 : currentNum;
-
-    const weeks = [...new Set(allData.map(i => i.week).filter(Boolean))].sort((a, b) =>
-      (parseInt(String(a).match(/\d+/)?.[0]) || 0) - (parseInt(String(b).match(/\d+/)?.[0]) || 0)
-    );
-    // Priority 1: exact match on effective current week (e.g. W16)
-    let match = weeks.find(w => (parseInt(String(w).match(/\d+/)?.[0]) || 0) === effectiveNum);
-    // Priority 2: latest week <= effectiveNum (most recent past week)
-    if (!match) {
-      const past = weeks.filter(w => (parseInt(String(w).match(/\d+/)?.[0]) || 0) < effectiveNum);
-      match = past[past.length - 1];
-    }
-    // Priority 3: all weeks are future — pick earliest (W16 before W17)
-    if (!match) match = weeks[0];
-    if (match) setWeekFilter([match]);
-  }, [allData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allData]);
 
   const { filtered, filteredAdhoc, uniqueWeeks, uniqueBrands, allStaff, syncedAdhocs } = useMemo(() => {
     const activeStaff = selectedStaff || (user?.role === 'staff' ? user : null);

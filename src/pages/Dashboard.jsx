@@ -80,14 +80,8 @@ const Dashboard = () => {
         setRawItems(items); 
         setAdhocRawItems(adhocItems); 
 
-        // Auto-select tuần lớn nhất có số điểm phân bổ (index 0 — đã sort active lên đầu)
-        // Dùng items (đã filter theo staff) để tìm tuần có data
-        const weeksWithData = visibleWeeks.filter(w =>
-          items.some(i => isSameWeek(i.week, w))
-        );
-        if (weeksWithData.length > 0) setWeek([weeksWithData[0]]);
-        else if (visibleWeeks.length > 0) setWeek([visibleWeeks[0]]);
-        else setWeek(['All']);
+        // Default to 'All' weeks per user request
+        setWeek(['All']);
 
         setDiag({ 
           user: `${pidNorm} - ${pNameNorm}`, 

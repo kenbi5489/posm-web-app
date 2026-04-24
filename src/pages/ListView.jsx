@@ -3,7 +3,7 @@ import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { Search, ExternalLink, CheckCircle2, Clock, MapPin, Hash, Zap, RefreshCw, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MultiSelect from '../components/MultiSelect';
 import { isSameWeek, getWeekMonth } from '../utils/weekUtils';
 
@@ -11,13 +11,14 @@ const stripAccents = (s) => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').
 
 // ─── Admin ListItem ───────────────────────────────────────────────────────────
 const AdminListItem = ({ item }) => {
+  const navigate = useNavigate();
   const isDone = item.status?.toLowerCase() === 'done';
   const hasPosm = (item.posm_status || '').toLowerCase().includes('c\u00f3');
   const hasImg1 = item.image1 && item.image1.length > 4 && !item.image1.startsWith('data:');
   const hasImg2 = item.image2 && item.image2.length > 4 && !item.image2.startsWith('data:');
 
   return (
-    <motion.div layout className='bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden'>
+    <motion.div layout onClick={() => navigate(`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`)} className='bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all'>
       {/* Top strip: status color */}
       <div className={`h-1.5 w-full ${isDone ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : 'bg-gradient-to-r from-amber-300 to-orange-300'}`} />
 
@@ -59,6 +60,7 @@ const AdminListItem = ({ item }) => {
             <a
               href={hasImg1 ? item.image1 : undefined}
               target='_blank' rel='noopener noreferrer'
+              onClick={(e) => e.stopPropagation()}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all
                 ${hasImg1
                   ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md active:scale-95'
@@ -69,6 +71,7 @@ const AdminListItem = ({ item }) => {
             <a
               href={hasImg2 ? item.image2 : undefined}
               target='_blank' rel='noopener noreferrer'
+              onClick={(e) => e.stopPropagation()}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all
                 ${hasImg2
                   ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md active:scale-95'
@@ -85,6 +88,7 @@ const AdminListItem = ({ item }) => {
 
 // ─── Staff ListItem (giữ nguyên như cũ) ─────────────────────────────────────
 const ListItem = ({ item }) => {
+  const navigate = useNavigate();
   const isMall = item.mall_name && item.mall_name !== 'N/A' && item.mall_name.trim().length > 0;
   const status = item.posm_status || 'Ch\u01b0a b\u00e1o c\u00e1o';
   const hasPosm = status.toLowerCase().includes('c\u00f3') || status.toLowerCase().includes('yes');
@@ -93,7 +97,7 @@ const ListItem = ({ item }) => {
   const hasImg2 = item.image2 && item.image2.length > 4 && !item.image2.startsWith('data:');
 
   return (
-    <motion.div layout className={`bg-white rounded-3xl border shadow-sm transition-all overflow-hidden relative ${item.priority ? 'border-amber-200' : 'border-slate-100'}`}>
+    <motion.div layout onClick={() => navigate(`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`)} className={`bg-white rounded-3xl border shadow-sm transition-all overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-300 relative ${item.priority ? 'border-amber-200' : 'border-slate-100'}`}>
       {/* Top strip */}
       <div className={`h-1.5 w-full ${isDone ? 'bg-gradient-to-r from-emerald-400 to-teal-400' : item.priority ? 'bg-gradient-to-r from-amber-400 to-orange-400' : 'bg-gradient-to-r from-slate-200 to-slate-300'}`} />
       
@@ -132,13 +136,13 @@ const ListItem = ({ item }) => {
         {/* Right Side: Actions */}
         <div className='flex sm:flex-col gap-2 w-full sm:w-36 shrink-0'>
           {!isDone ? (
-             <Link to={`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`} className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-white font-black transition-all active:scale-95 shadow-md ${item.priority ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
+             <Link onClick={(e) => e.stopPropagation()} to={`/detail/${item.job_code}/${encodeURIComponent(item.brand)}`} className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-white font-black transition-all active:scale-95 shadow-md ${item.priority ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>
                 <Hash size={18} /> N\u1ed8P
              </Link>
           ) : (
              <>
-                <a href={hasImg1 ? item.image1 : '#'} target={hasImg1 ? '_blank' : '_self'} rel='noopener noreferrer' className={`flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${hasImg1 ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 shadow-sm border border-indigo-100 active:scale-95' : 'bg-slate-50 text-slate-300 pointer-events-none border border-slate-100'}`}><ExternalLink size={14} /> Ảnh 1</a>
-                <a href={hasImg2 ? item.image2 : '#'} target={hasImg2 ? '_blank' : '_self'} rel='noopener noreferrer' className={`flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${hasImg2 ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 shadow-sm border border-indigo-100 active:scale-95' : 'bg-slate-50 text-slate-300 pointer-events-none border border-slate-100'}`}><ExternalLink size={14} /> Ảnh 2</a>
+                <a onClick={(e) => e.stopPropagation()} href={hasImg1 ? item.image1 : '#'} target={hasImg1 ? '_blank' : '_self'} rel='noopener noreferrer' className={`flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${hasImg1 ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 shadow-sm border border-indigo-100 active:scale-95' : 'bg-slate-50 text-slate-300 pointer-events-none border border-slate-100'}`}><ExternalLink size={14} /> Ảnh 1</a>
+                <a onClick={(e) => e.stopPropagation()} href={hasImg2 ? item.image2 : '#'} target={hasImg2 ? '_blank' : '_self'} rel='noopener noreferrer' className={`flex-1 sm:flex-none flex items-center justify-center gap-2 py-3 px-4 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${hasImg2 ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 shadow-sm border border-indigo-100 active:scale-95' : 'bg-slate-50 text-slate-300 pointer-events-none border border-slate-100'}`}><ExternalLink size={14} /> Ảnh 2</a>
              </>
           )}
         </div>
@@ -206,15 +210,7 @@ const ListView = () => {
         }
         setListItems(filteredByPic);
 
-        // Auto-select tuần mới nhất có data
-        const weeksInData = [...new Set(filteredByPic.map(i => i.week))]
-          .filter(w => Boolean(w) && !w.includes('??'))
-          .sort((a, b) => {
-            const nA = parseInt(String(a).match(/\d+/)?.[0]) || 0;
-            const nB = parseInt(String(b).match(/\d+/)?.[0]) || 0;
-            return nB - nA;
-          });
-        if (weeksInData.length > 0) setWeek([weeksInData[0]]);
+        // Removing auto-select logic to default to All weeks/months per user request
       } catch (err) {
         console.error('ListView Load Error:', err);
       } finally {
