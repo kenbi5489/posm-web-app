@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SyncProvider } from './context/SyncContext';
 import AppLayout from './layouts/AppLayout';
 const Login = React.lazy(() => import('./pages/Login'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -159,6 +160,7 @@ const Home = () => {
 function App() {
   return (
     <AuthProvider>
+      <SyncProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -174,6 +176,7 @@ function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </SyncProvider>
     </AuthProvider>
   );
 }

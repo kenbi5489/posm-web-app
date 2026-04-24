@@ -63,7 +63,9 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
   // Ad-hoc fields
   const [adHocBrand, setAdHocBrand] = useState('');
   const [adHocAddress, setAdHocAddress] = useState('');
-  const [selectedProject, setSelectedProject] = useState(item?.project || (isAdHoc ? 'UrGift' : 'UrGift'));
+  const initProject = item?.project;
+  const safeInitProject = (initProject && initProject.toLowerCase().includes('point')) ? 'Internal' : (initProject || (isAdHoc ? 'UrGift' : 'UrGift'));
+  const [selectedProject, setSelectedProject] = useState(safeInitProject);
 
   // Form State
   const [storeStatus, setStoreStatus] = useState('Site check');
@@ -265,20 +267,14 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         }
       }
 
-      // 3. Send to GAS synchronously to guarantee delivery BEFORE UI closes
-      setLoading(true);
-      try {
-        await fetch(GAS_WEB_APP_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
-      } catch (err) {
-        setLoading(false);
-        throw new Error('Kết nối mạng không ổn định, tải lên bị lỗi. Vui lòng thử lại!');
-      }
-
+      // 3. Push to background sync queue instead of synchronous fetch
+      // This prevents iOS Safari network timeout errors and duplicate submissions
+      await db.syncQueue.add({
+        type: 'REPORT_POSM',
+        payload: payload,
+        timestamp: Date.now()
+      });
+      
       setLoading(false);
 
       // 4. Show success and notify parent (this triggers the UI updates and navigation)
@@ -397,9 +393,9 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                   >UrGift</button>
                   <button
                     type="button"
-                    onClick={() => setSelectedProject('UrPoint')}
-                    className={`py-3 rounded-2xl text-sm font-black transition-all ${selectedProject === 'UrPoint' ? 'bg-violet-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
-                  >UrPoint</button>
+                    onClick={() => setSelectedProject('Internal')}
+                    className={`py-3 rounded-2xl text-sm font-black transition-all ${selectedProject === 'Internal' ? 'bg-violet-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}
+                  >Internal</button>
                 </div>
               </div>
 

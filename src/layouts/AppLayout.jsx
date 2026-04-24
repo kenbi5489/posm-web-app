@@ -2,13 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { Home, Map as MapIcon, List, User, Users, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useSync } from '../hooks/useSync';
+import { useSyncContext } from '../context/SyncContext';
 import { fetchUsers } from '../services/api';
 import { motion } from 'framer-motion';
 
 const AppLayout = () => {
   const { user, selectedStaff, selectStaff } = useAuth();
-  const { syncing, pullData } = useSync(user);
+  const { syncing, pullData } = useSyncContext();
   const [allStaff, setAllStaff] = useState([]);
   
   const isAdmin = user?.role === 'admin';

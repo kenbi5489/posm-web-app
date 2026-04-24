@@ -45,7 +45,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        cacheId: 'posm-tracker-v20260417-04',  // ← bump this to force SW cache bust
+        cacheId: 'posm-tracker-v20260423-01',  // ← bump this to force SW cache bust
         skipWaiting: true,
         clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],

@@ -191,27 +191,59 @@ const LocationDetail = () => {
 
               <div className="pt-8 border-t border-slate-50">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Ảnh nghiệm thu</p>
-                <div className="grid grid-cols-2 gap-4">
-                  {(acceptance?.image1 || item.image1) ? (
-                    <div className="space-y-3">
-                        <a href={acceptance?.image1 || item.image1} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
-                        <LinkIcon size={12} /> Xem ảnh 1
+                {user?.role === 'admin' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(acceptance?.image1 || item.image1) ? (
+                        <a href={acceptance?.image1 || item.image1} target="_blank" rel="noreferrer" className="group block relative w-full aspect-video rounded-[1.5rem] overflow-hidden border border-slate-200 shadow-sm transition-transform active:scale-[0.98]">
+                            <img src={acceptance?.image1 || item.image1} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Ảnh 1" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent opacity-100 flex items-end p-4">
+                                <span className="bg-white/20 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                                  <LinkIcon size={14} /> Phóng to
+                                </span>
+                            </div>
+                            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm shadow-sm px-3 py-1.5 rounded-xl text-[10px] font-black text-slate-700 tracking-wider">ẢNH 1</div>
                         </a>
-                    </div>
-                  ) : (
-                    <div className="bg-slate-50 text-slate-300 rounded-2xl py-4 flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 1</div>
-                  )}
+                    ) : (
+                        <div className="aspect-video bg-slate-50 text-slate-300 rounded-[1.5rem] flex items-center justify-center border-2 border-dashed border-slate-100 text-xs font-black uppercase tracking-widest">Thiếu Ảnh 1</div>
+                    )}
 
-                  {(acceptance?.image2 || item.image2) ? (
-                    <div className="space-y-3">
-                        <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
-                        <LinkIcon size={12} /> Xem ảnh 2
+                    {(acceptance?.image2 || item.image2) ? (
+                        <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="group block relative w-full aspect-video rounded-[1.5rem] overflow-hidden border border-slate-200 shadow-sm transition-transform active:scale-[0.98]">
+                            <img src={acceptance?.image2 || item.image2} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" alt="Ảnh 2" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent opacity-100 flex items-end p-4">
+                                <span className="bg-white/20 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2">
+                                  <LinkIcon size={14} /> Phóng to
+                                </span>
+                            </div>
+                            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm shadow-sm px-3 py-1.5 rounded-xl text-[10px] font-black text-slate-700 tracking-wider">ẢNH 2</div>
                         </a>
-                    </div>
-                  ) : (
-                    <div className="bg-slate-50 text-slate-300 rounded-2xl py-4 flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 2</div>
-                  )}
-                </div>
+                    ) : (
+                        <div className="aspect-video bg-slate-50 text-slate-300 rounded-[1.5rem] flex items-center justify-center border-2 border-dashed border-slate-100 text-xs font-black uppercase tracking-widest">Thiếu Ảnh 2</div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {(acceptance?.image1 || item.image1) ? (
+                      <div className="space-y-3">
+                          <a href={acceptance?.image1 || item.image1} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
+                          <LinkIcon size={12} /> Xem ảnh 1
+                          </a>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 text-slate-300 rounded-2xl py-4 flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 1</div>
+                    )}
+
+                    {(acceptance?.image2 || item.image2) ? (
+                      <div className="space-y-3">
+                          <a href={acceptance?.image2 || item.image2} target="_blank" rel="noreferrer" className="w-full bg-slate-50 text-indigo-600 font-black py-4 rounded-2xl text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-100">
+                          <LinkIcon size={12} /> Xem ảnh 2
+                          </a>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 text-slate-300 rounded-2xl py-4 flex items-center justify-center border-2 border-dashed border-slate-100 text-[10px] font-black uppercase">Thiếu Ảnh 2</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

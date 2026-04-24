@@ -59,23 +59,11 @@ export const getActiveRouteWeekNum = () => {
 };
 
 /**
- * Helper to generate consistent labels like "W15 (T.4)"
+ * Helper to generate consistent week label, e.g. "W15"
  */
-export const getWeekLabelHelper = (num, dateReference = null) => {
+export const getWeekLabelHelper = (num) => {
   if (!num || num <= 0) return 'W??';
-  
-  let month = 0;
-  if (dateReference) {
-    const d = new Date(dateReference);
-    if (!isNaN(d.getTime())) month = d.getMonth() + 1;
-  }
-  
-  if (month === 0) {
-    // Approx month calculation if date is missing
-    month = Math.min(12, Math.floor((num - 1) / 4.34) + 1);
-  }
-  
-  return `W${num} (T.${month})`;
+  return `W${num}`;
 };
 
 /**
@@ -91,18 +79,43 @@ export const getActiveWeeks = () => {
   const nextNum = getCustomWeekNumber(nextDate);
   
   return [
-    getWeekLabelHelper(currentNum, today),
-    getWeekLabelHelper(nextNum, nextDate)
+    getWeekLabelHelper(currentNum),
+    getWeekLabelHelper(nextNum)
   ];
 };
 
 /**
  * Compares two week strings strictly by their week number (WXX)
- * Example: isSameWeek("W15 (T.3)", "W15 (T.4)") -> true
+ * Example: isSameWeek("W15", "W15") -> true
  */
 export const isSameWeek = (a, b) => {
   if (!a || !b) return false;
   const numA = parseInt(String(a).match(/\d+/)?.[0], 10) || 0;
   const numB = parseInt(String(b).match(/\d+/)?.[0], 10) || 0;
   return numA > 0 && numA === numB;
+};
+
+/**
+ * Maps a week string like "W16" to its corresponding month.
+ * Uses ISO-like rule (4 days rule): The month of the Monday of that week.
+ */
+export const getWeekMonth = (weekStr, year = new Date().getFullYear()) => {
+  if (!weekStr) return "N/A";
+  const num = parseInt(String(weekStr).match(/\d+/)?.[0], 10);
+  if (!num || num <= 0) return "N/A";
+
+  const d = new Date(year, 0, 1);
+  const jan1Day = d.getDay();
+  const daysToFirstFri = (5 - jan1Day + 7) % 7;
+  const firstFriday = new Date(year, 0, 1 + daysToFirstFri);
+  
+  // Start date (Friday) of week `num`
+  const weekStart = new Date(firstFriday);
+  weekStart.setDate(firstFriday.getDate() + (num - 1) * 7);
+  
+  // Monday of that week (which is 3 days after Friday)
+  const monday = new Date(weekStart);
+  monday.setDate(weekStart.getDate() + 3);
+  
+  return `Tháng ${monday.getMonth() + 1}`;
 };

@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
-import { useSync } from '../hooks/useSync';
+import { useSyncContext } from '../context/SyncContext';
 import { CheckCircle2, CircleDashed, LayoutGrid, MapPin, TrendingUp, Zap, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import ReportModal from '../components/ReportModal';
 import { getCurrentWeekLabel, getActiveWeeks, isSameWeek } from '../utils/weekUtils';
+import MultiSelect from '../components/MultiSelect';
 
 const stripAccents = (s) => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D') || '';
 
 const Dashboard = () => {
   const { user, selectedStaff, lastSync, localRefreshTick } = useAuth();
-  const { syncing, pullData, clearAndResync, pullAcceptanceOnly } = useSync(user);
-  const [week, setWeek] = useState('All');
+  const { syncing, pullData, clearAndResync, pullAcceptanceOnly } = useSyncContext();
+  const [week, setWeek] = useState(['All']);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [brand, setBrand] = useState('All');
   const [stats, setStats] = useState({ assignedTotal: 0, assignedPending: 0, totalDone: 0, adhocDone: 0, umsDone: 0, percent: 0, efficiency: 0, priorityPending: 0 });
@@ -72,15 +73,21 @@ const Dashboard = () => {
 
         const brands = [...new Set(items.map(i => i.brand))].filter(Boolean).sort();
 
+        // Dropdown chỉ hiện 2 tuần gần nhất
         const visibleWeeks = sortedWeeks.slice(0, 2);
         setUniqueWeeks(visibleWeeks);
         setUniqueBrands(brands);
         setRawItems(items); 
         setAdhocRawItems(adhocItems); 
-        
-        // Auto-select the newest week
-        if (visibleWeeks.length > 0) setWeek(visibleWeeks[0]);
-        else setWeek('All');
+
+        // Auto-select tuần lớn nhất có số điểm phân bổ (index 0 — đã sort active lên đầu)
+        // Dùng items (đã filter theo staff) để tìm tuần có data
+        const weeksWithData = visibleWeeks.filter(w =>
+          items.some(i => isSameWeek(i.week, w))
+        );
+        if (weeksWithData.length > 0) setWeek([weeksWithData[0]]);
+        else if (visibleWeeks.length > 0) setWeek([visibleWeeks[0]]);
+        else setWeek(['All']);
 
         setDiag({ 
           user: `${pidNorm} - ${pNameNorm}`, 
@@ -101,7 +108,9 @@ const Dashboard = () => {
   // 2. Calculate Stats based on filters
   useEffect(() => {
     let filtered = rawItems;
-    if (week !== 'All') filtered = filtered.filter(i => isSameWeek(i.week, week));
+    if (!week.includes('All')) {
+      filtered = filtered.filter(i => week.some(w => isSameWeek(i.week, w)));
+    }
     if (brand !== 'All') filtered = filtered.filter(i => i.brand === brand);
 
     // Differentiate between assigned missions and ad-hoc points
@@ -114,8 +123,8 @@ const Dashboard = () => {
     
     // Filter local adhocRawItems by week if necessary
     let localAdhocFinal = adhocRawItems;
-    if (week !== 'All') {
-      localAdhocFinal = localAdhocFinal.filter(i => isSameWeek(i.week, week));
+    if (!week.includes('All')) {
+      localAdhocFinal = localAdhocFinal.filter(i => week.some(w => isSameWeek(i.week, w)));
     }
     localAdhocFinal.forEach(i => {
       if (!adhocMap.has(i.job_code)) adhocMap.set(i.job_code, i);
@@ -130,9 +139,9 @@ const Dashboard = () => {
     const adhocDone = adhocFiltered.filter(i => i.status?.toLowerCase() === 'done').length;
     const totalDone = assignedDone + adhocDone;
     
-    // UMS / UrPoint project tracking
+    // UMS / Internal project tracking
     const umsDone = [...assignedFiltered, ...adhocFiltered].filter(i => 
-      i.status?.toLowerCase() === 'done' && (i.project || '').toLowerCase().includes('point')
+      i.status?.toLowerCase() === 'done' && ((i.project || '').toLowerCase().includes('point') || (i.project || '').toLowerCase().includes('internal'))
     ).length;
 
     const completionRate = Math.min(100, Math.round((totalDone / 75) * 100));
@@ -172,8 +181,8 @@ const Dashboard = () => {
             <Star className="text-white fill-white" size={28} />
           </div>
           <div>
-            <h3 className="font-black text-xl uppercase tracking-tighter leading-none">TASK TEAM UMS</h3>
-            <p className="text-[10px] font-bold uppercase tracking-widest mt-1.5 opacity-80">UrPoint Completed</p>
+            <h3 className="font-black text-xl uppercase tracking-tighter leading-none">Task khác</h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest mt-1.5 opacity-80">Internal</p>
           </div>
         </div>
         <div className="flex items-baseline gap-1">
@@ -212,9 +221,14 @@ const Dashboard = () => {
 
       <div className="space-y-2">
         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lọc theo Tuần</label>
-        <select value={week} onChange={(e) => setWeek(e.target.value)} className="w-full bg-white border border-slate-100 p-4 rounded-2xl text-xs font-black text-slate-700 outline-none shadow-sm">
-          {uniqueWeeks.map(w => <option key={w} value={w}>{w}</option>)}
-        </select>
+        <div className="flex">
+          <MultiSelect 
+            label="Tuần" 
+            options={uniqueWeeks} 
+            value={week} 
+            onChange={setWeek} 
+          />
+        </div>
       </div>
 
       <section className="grid grid-cols-2 gap-3">

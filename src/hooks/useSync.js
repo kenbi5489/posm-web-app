@@ -2,9 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { fetchPOSMData, fetchAcceptanceData } from '../services/api';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
-import { getCustomWeekNumber, getWeekLabelHelper } from '../utils/weekUtils';
+import { getCustomWeekNumber, getWeekLabelHelper, isSameWeek } from '../utils/weekUtils';
 
 let syncInProgress = false;
+// Fetch with 15-second timeout to prevent app from hanging on slow networks
+const fetchWithTimeout = (url, options = {}, timeoutMs = 15000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(id));
+};
 const FULL_SYNC_INTERVAL_MS = 20 * 60 * 1000;       // 20 min — mission data rarely changes
 const ACCEPTANCE_SYNC_INTERVAL_MS = 3 * 60 * 1000; // 3 min  — catches new reports quickly
 
@@ -64,10 +71,21 @@ export const useSync = (user) => {
     setSyncing(true);
     syncInProgress = true;
     try {
-      const [posmResponse, accResponse] = await Promise.all([
-        fetchPOSMData(),
-        fetchAcceptanceData()
-      ]);
+      // Race against a 20-second global timeout so the app never hangs on bad network
+      const fetchTimeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Sync timeout after 20s')), 20000)
+      );
+      const [posmResponse, accResponse] = await Promise.race([
+        Promise.all([fetchPOSMData(), fetchAcceptanceData()]),
+        fetchTimeout.then(() => { throw new Error('unreachable'); })
+      ]).catch(async (err) => {
+        if (err.message.includes('Sync timeout')) {
+          console.warn('[Sync] Fetch timed out, using cached/mock data');
+          const { mockPOSMData } = await import('../services/mockData');
+          return [{ data: mockPOSMData, isMock: true, error: 'timeout' }, { data: [], isMock: true }];
+        }
+        throw err;
+      });
 
       const { data: rawData, isMock: isPosmMock } = posmResponse;
       const { data: rawAcc, isMock: isAccMock } = accResponse;
@@ -132,7 +150,7 @@ export const useSync = (user) => {
           dateRef = parseDateSafe(dateStr);
         }
         
-        return getWeekLabelHelper(num, dateRef);
+        return getWeekLabelHelper(num);
       };
 
       const data = rawData;
@@ -212,7 +230,14 @@ export const useSync = (user) => {
           city: getValFast(row, ['Thành Phố', 'Thanh Pho', 'City', 'Tỉnh'], headerMapData),
           pic: getValFast(row, ['PIC', 'Nhân viên', 'Nhan vien', 'Người thực hiện'], headerMapData),
           status: normStatus(getValFast(row, ['Status', 'Trạng thái', 'Tinh trang'], headerMapData)),
-          pic_id: (getValFast(row, ['pic_id', 'Mã nhân viên', 'Staff ID', 'Emp ID', 'Ma NV'], headerMapData) || '').toString().trim(),
+          pic_id: (() => {
+            // Primary: read from sheet column if exists
+            const sheetId = (getValFast(row, ['pic_id', 'Mã nhân viên', 'Staff ID', 'Emp ID', 'Ma NV'], headerMapData) || '').toString().trim();
+            if (sheetId) return sheetId;
+            // Fallback: resolve from PIC name → user_id via nameToId map
+            const picNameRaw = getValFast(row, ['PIC', 'Nhân viên', 'Nhan vien', 'Người thực hiện'], headerMapData);
+            return nameToId.get(stripAccents(picNameRaw).toLowerCase().trim()) || '';
+          })(),
           lat: parseCoord(getValFast(row, ['latitude', 'lat', 'vĩ độ'], headerMapData)),
           lng: parseCoord(getValFast(row, ['longitude', 'lng', 'kinh độ'], headerMapData)),
           mall_name: getValFast(row, ['Mall_Name', 'Mall', 'Trung tâm'], headerMapData) || 'N/A',
@@ -404,9 +429,11 @@ export const useSync = (user) => {
 
       if (user.role === 'staff') {
         // STRICT RULE: Keep ONLY the top 2 newest weeks (including 'Done' items)
-        const latestTwoWeeks = new Set(weeks.slice(0, 2));
-        transformed = transformed.filter(i => latestTwoWeeks.has(i.week));
-        console.log(`[Sync] Strict sliding window: Keeping only ${[...latestTwoWeeks].join(', ')}`);
+        // Use isSameWeek() for fuzzy week-number match instead of exact string comparison
+        // (e.g. "W15" vs "W15 (T.4)" must both match → avoids silently dropping valid rows)
+        const latestTwoWeeks = weeks.slice(0, 2);
+        transformed = transformed.filter(i => latestTwoWeeks.some(w => isSameWeek(i.week, w)));
+        console.log(`[Sync] Strict sliding window: Keeping only ${latestTwoWeeks.join(', ')}`);
       }
       // ------ OPTIMISTIC UI PRESERVATION ------
       // Do not overwrite "Done" status with stale "On-going" status from Google Sheets
@@ -415,7 +442,7 @@ export const useSync = (user) => {
       const currentPosmData = await db.posmData.toArray();
       const optimisticMap = new Map();
       const now = Date.now();
-      const GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
+      const GRACE_PERIOD_MS = 10 * 60 * 1000; // 10 minutes
 
       currentPosmData.forEach(item => {
         if (item.status === 'Done' && item.completed_at_local) {
@@ -473,9 +500,9 @@ export const useSync = (user) => {
               return false;
             }
 
-            // Case 2: Keep local draft for 30 minutes if not on sheet yet
+            // Case 2: Keep local draft for 10 minutes if not on sheet yet
             const submittedAt = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
-            return (now - submittedAt) > 30 * 60 * 1000; // 30 minutes
+            return (now - submittedAt) > 10 * 60 * 1000; // 10 minutes
           }).map(a => a.id);
           
           if (toDelete.length > 0) {

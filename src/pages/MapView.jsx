@@ -11,7 +11,7 @@ import ReportModal from '../components/ReportModal';
 // --- Simple VisitedModal removed in favor of direct ReportModal ---
 
 const MapView = () => {
-  const { user, selectedStaff } = useAuth();
+  const { user, selectedStaff, lastSync } = useAuth();
   const [allItems, setAllItems] = useState([]);
   const [checkins, setCheckins] = useState([]);
   const [dataVersion, setDataVersion] = useState(0);
@@ -40,7 +40,7 @@ const MapView = () => {
       } catch (err) { console.error(err); }
     };
     load();
-  }, [dataVersion]);
+  }, [dataVersion, lastSync]);
 
   // Map checkins for quick lookup
   const visitedSet = useMemo(() => new Set(checkins.map(c => c.job_code)), [checkins]);
@@ -52,8 +52,20 @@ const MapView = () => {
   //     Thứ 5 Apr 17 → W15 (tuần cũ vẫn đang chạy đến cuối ngày)
   // Nếu data chưa có tuần hiện tại (admin chưa phân bổ) → fallback tuần lớn nhất có sẵn
   const latestWeek = useMemo(() => {
-    // Sếp yêu cầu ưu tiên mặc định cứng là W16 để nhân viên không phải dò tìm
-    return "W16 (T.4)";
+    // Dynamic: use current week by company rule (Fri→Thu), fallback to newest in data
+    const currentNum = getActiveRouteWeekNum();
+    const currentLabel = getWeekLabelHelper(currentNum);
+    // Check if data actually has this week; if not, fall back to newest available week
+    const hasCurrentWeek = allItems.some(i => isSameWeek(i.week, currentLabel));
+    if (hasCurrentWeek) return currentLabel;
+    // Fallback: find newest week present in data
+    const weekNums = allItems
+      .map(i => parseInt(String(i.week || '').match(/\d+/)?.[0]) || 0)
+      .filter(n => n > 0);
+    if (weekNums.length === 0) return currentLabel;
+    const maxNum = Math.max(...weekNums);
+    const fallbackItem = allItems.find(i => parseInt(String(i.week || '').match(/\d+/)?.[0]) === maxNum);
+    return fallbackItem?.week || currentLabel;
   }, [allItems]);
 
   // Group by District
@@ -64,10 +76,16 @@ const MapView = () => {
     let targetData = allItems.filter(i => isSameWeek(i.week, latestWeek));
     if (selectedStaff || user?.role === 'staff') {
       const targetId = (selectedStaff?.user_id || user?.user_id || '').toString().toLowerCase();
-      targetData = allItems.filter(i => 
-        isSameWeek(i.week, latestWeek) && 
-        String(i.pic_id || '').toLowerCase() === targetId
-      );
+      const targetName = ((selectedStaff?.ho_ten || user?.ho_ten || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim());
+      targetData = allItems.filter(i => {
+        if (!isSameWeek(i.week, latestWeek)) return false;
+        const iPicId = String(i.pic_id || '').toLowerCase();
+        const iPicName = (i.pic || '')
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
+        // Match by pic_id (primary) OR by pic name (fallback for rows without pic_id)
+        return (targetId && iPicId && iPicId === targetId) || (targetName && iPicName && iPicName === targetName);
+      });
     }
 
     targetData.forEach(item => {
