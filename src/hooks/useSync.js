@@ -61,6 +61,7 @@ const parseDateSafe = (dateStr) => {
   return isNaN(d.getTime()) ? null : d;
 };
 // ─────────────────────────────────────────────────────────────────────────────
+let isFlushingQueue = false;
 
 export const useSync = (user) => {
   const [syncing, setSyncing] = useState(false);
@@ -337,8 +338,8 @@ export const useSync = (user) => {
             note: 'Điểm phát sinh ngoài tuyến',
             completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
             posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
-            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
-            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
+            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc),
+            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc),
             acceptance_note: getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc),
             urgift_status: getValFast(row, ['Hoạt động UrGift', 'Hoat dong UrGift', 'urgift_status', 'Store Status'], headerMapAcc) || '',
             reported_by: picName,
@@ -356,8 +357,8 @@ export const useSync = (user) => {
             week: reportWeekString || existing.week,
             completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
             posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
-            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
-            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
+            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc),
+            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc),
             is_frame: (() => {
               const f = (getValFast(row, ['Has_UrBox_Logo', 'Frame', 'Logo', 'Khung'], headerMapAcc) || "").toLowerCase();
               return f.includes('yes') || f.includes('có') || f.includes('frame');
@@ -390,8 +391,8 @@ export const useSync = (user) => {
               isHistorical: true,
               completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
               posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
-              image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
-              image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
+              image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc),
+              image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc),
               project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapAcc) || '',
             });
           }
@@ -574,8 +575,8 @@ export const useSync = (user) => {
         if (!upperJobCode.includes('QC') && !upperJobCode.includes('NEW_')) return;
 
         const picName = (getValFast(row, ['Tên nhân viên', 'Họ tên nhân sự', 'Nhân viên', 'Người báo cáo', 'Nhan vien'], headerMapAcc) || '').toString().trim();
-        const newImage1       = getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc);
-        const newImage2       = getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc);
+        const newImage1       = getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc);
+        const newImage2       = getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc);
         const completionDate  = getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '';
         const posmStatus      = getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '';
         const accNote         = getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc);
@@ -683,26 +684,38 @@ export const useSync = (user) => {
 
   // Background processor for guaranteed delivery
   const flushQueue = useCallback(async () => {
+    if (isFlushingQueue) return;
+    isFlushingQueue = true;
     try {
       const q = await db.syncQueue.toArray();
       if (q.length === 0) return;
       console.log(`[SyncQueue] Flushing ${q.length} pending reports...`);
       for (const task of q) {
         if (task.type === 'REPORT_POSM') {
-          // Send to GAS
-          await fetch("https://script.google.com/macros/s/AKfycbxCo0nA6Ikxfuucow1-v4MViGX04UT8s5oiEIUI6GFAN9ESftVW2Wql3w7XRn474JAvDQ/exec", {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(task.payload)
-          });
-          // Remove from queue ONLY if fetch succeeds (no-cors always resolves unless network failure)
+          try {
+            // Send to GAS
+            await fetch("https://script.google.com/macros/s/AKfycbxCo0nA6Ikxfuucow1-v4MViGX04UT8s5oiEIUI6GFAN9ESftVW2Wql3w7XRn474JAvDQ/exec", {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(task.payload)
+            });
+            // Remove from queue ONLY if fetch succeeds (no-cors always resolves unless network failure)
+            await db.syncQueue.delete(task.id);
+            console.log(`[SyncQueue] Uploaded and cleared task ${task.id}`);
+          } catch (fetchErr) {
+            console.warn(`[SyncQueue] Fetch error for task ${task.id}:`, fetchErr);
+            break; // Stop processing further tasks to avoid out-of-order or duplicate partial failures
+          }
+        } else if (task.type === 'COMPLETE_POSM') {
+          // Additional safety: we also need to process COMPLETE_POSM here if any
           await db.syncQueue.delete(task.id);
-          console.log(`[SyncQueue] Uploaded and cleared task ${task.id}`);
         }
       }
     } catch (err) {
       console.warn('[SyncQueue] Flush failed, will retry next tick:', err);
+    } finally {
+      isFlushingQueue = false;
     }
   }, []);
 
