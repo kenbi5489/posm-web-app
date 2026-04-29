@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { getCustomWeekNumber, getWeekLabelHelper, isSameWeek } from '../utils/weekUtils';
 
 let syncInProgress = false;
+let isFlushingQueue = false;
 // Fetch with 15-second timeout to prevent app from hanging on slow networks
 const fetchWithTimeout = (url, options = {}, timeoutMs = 15000) => {
   const controller = new AbortController();
@@ -61,10 +62,10 @@ const parseDateSafe = (dateStr) => {
   return isNaN(d.getTime()) ? null : d;
 };
 // ─────────────────────────────────────────────────────────────────────────────
-let isFlushingQueue = false;
 
 export const useSync = (user) => {
   const [syncing, setSyncing] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
   const { setLastSync } = useAuth();
 
   const pullData = useCallback(async (force = false) => {
@@ -338,8 +339,8 @@ export const useSync = (user) => {
             note: 'Điểm phát sinh ngoài tuyến',
             completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
             posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
-            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc),
-            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc),
+            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
+            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
             acceptance_note: getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc),
             urgift_status: getValFast(row, ['Hoạt động UrGift', 'Hoat dong UrGift', 'urgift_status', 'Store Status'], headerMapAcc) || '',
             reported_by: picName,
@@ -357,8 +358,8 @@ export const useSync = (user) => {
             week: reportWeekString || existing.week,
             completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
             posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
-            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc),
-            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc),
+            image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
+            image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
             is_frame: (() => {
               const f = (getValFast(row, ['Has_UrBox_Logo', 'Frame', 'Logo', 'Khung'], headerMapAcc) || "").toLowerCase();
               return f.includes('yes') || f.includes('có') || f.includes('frame');
@@ -391,8 +392,8 @@ export const useSync = (user) => {
               isHistorical: true,
               completion_date: getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '',
               posm_status: getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '',
-              image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc),
-              image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc),
+              image1: getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc),
+              image2: getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc),
               project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapAcc) || '',
             });
           }
@@ -575,8 +576,8 @@ export const useSync = (user) => {
         if (!upperJobCode.includes('QC') && !upperJobCode.includes('NEW_')) return;
 
         const picName = (getValFast(row, ['Tên nhân viên', 'Họ tên nhân sự', 'Nhân viên', 'Người báo cáo', 'Nhan vien'], headerMapAcc) || '').toString().trim();
-        const newImage1       = getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1', 'Image 1', 'Link ảnh 1', 'Link anh 1', 'Ảnh nghiệm thu 1', 'Anh 1', 'Anh nghiem thu 1'], headerMapAcc);
-        const newImage2       = getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2', 'Image 2', 'Link ảnh 2', 'Link anh 2', 'Ảnh nghiệm thu 2', 'Anh 2', 'Anh nghiem thu 2'], headerMapAcc);
+        const newImage1       = getValFast(row, ['Link 1', 'Ảnh 1', 'Hình 1'], headerMapAcc);
+        const newImage2       = getValFast(row, ['Link 2', 'Ảnh 2', 'Hình 2'], headerMapAcc);
         const completionDate  = getValFast(row, ['Timestamp', 'Thời gian', 'Ngày báo cáo'], headerMapAcc) || '';
         const posmStatus      = getValFast(row, ['POSM_Status', 'POSM Status', 'Tình trạng POSM'], headerMapAcc) || '';
         const accNote         = getValFast(row, ['Ghi chú', 'Ghi chu', 'Note'], headerMapAcc);
@@ -684,10 +685,15 @@ export const useSync = (user) => {
 
   // Background processor for guaranteed delivery
   const flushQueue = useCallback(async () => {
-    if (isFlushingQueue) return;
+    if (isFlushingQueue) {
+      console.log('[SyncQueue] Flush already in progress, skipping...');
+      return;
+    }
     isFlushingQueue = true;
     try {
       const q = await db.syncQueue.toArray();
+      setPendingCount(q.length);
+      
       if (q.length === 0) return;
       console.log(`[SyncQueue] Flushing ${q.length} pending reports...`);
       for (const task of q) {
@@ -704,14 +710,16 @@ export const useSync = (user) => {
             await db.syncQueue.delete(task.id);
             console.log(`[SyncQueue] Uploaded and cleared task ${task.id}`);
           } catch (fetchErr) {
-            console.warn(`[SyncQueue] Fetch error for task ${task.id}:`, fetchErr);
-            break; // Stop processing further tasks to avoid out-of-order or duplicate partial failures
+            console.warn(`[SyncQueue] Failed to upload task ${task.id}, network might be down. Stopping flush.`, fetchErr);
+            break; // Stop flushing the queue if network error occurs to preserve order
           }
-        } else if (task.type === 'COMPLETE_POSM') {
-          // Additional safety: we also need to process COMPLETE_POSM here if any
-          await db.syncQueue.delete(task.id);
         }
       }
+      
+      // Update pending count after flush attempt
+      const remainingQ = await db.syncQueue.toArray();
+      setPendingCount(remainingQ.length);
+      
     } catch (err) {
       console.warn('[SyncQueue] Flush failed, will retry next tick:', err);
     } finally {
@@ -730,8 +738,24 @@ export const useSync = (user) => {
     const queueInterval = setInterval(flushQueue, 15000); // Check every 15s
     const fullInterval = setInterval(pullData, FULL_SYNC_INTERVAL_MS);
     const accInterval  = setInterval(pullAcceptanceOnly, ACCEPTANCE_SYNC_INTERVAL_MS);
-    return () => { clearInterval(queueInterval); clearInterval(fullInterval); clearInterval(accInterval); };
-  }, [user?.user_id, pullData, pullAcceptanceOnly, flushQueue]);
+    
+    // Warn user before closing tab if there are pending items
+    const handleBeforeUnload = (e) => {
+      if (pendingCount > 0) {
+        e.preventDefault();
+        e.returnValue = `Hệ thống đang đồng bộ ${pendingCount} báo cáo. Bạn có chắc muốn thoát? Dữ liệu chưa đồng bộ sẽ được lưu lại nhưng cần mở ứng dụng sau để gửi tiếp.`;
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => { 
+      clearInterval(queueInterval); 
+      clearInterval(fullInterval); 
+      clearInterval(accInterval); 
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [user?.user_id, pullData, pullAcceptanceOnly, flushQueue, pendingCount]);
 
-  return { syncing, pullData, clearAndResync, pullAcceptanceOnly };
+  return { syncing, pendingCount, pullData, clearAndResync, pullAcceptanceOnly };
 };

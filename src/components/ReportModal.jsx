@@ -98,10 +98,10 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
             // Downscale image to save bandwidth - aggressive compression for speed
             const MAX_DIMENSION = 900;
             if (width > height && width > MAX_DIMENSION) {
-              height *= MAX_DIMENSION / width;
+              height = Math.round(height * (MAX_DIMENSION / width));
               width = MAX_DIMENSION;
             } else if (height > MAX_DIMENSION) {
-              width *= MAX_DIMENSION / height;
+              width = Math.round(width * (MAX_DIMENSION / height));
               height = MAX_DIMENSION;
             }
 
