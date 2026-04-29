@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 
 const AppLayout = () => {
   const { user, selectedStaff, selectStaff } = useAuth();
-  const { syncing, pullData } = useSyncContext();
+  const { syncing, pullData, pendingCount } = useSyncContext();
   const [allStaff, setAllStaff] = useState([]);
   
   const isAdmin = user?.role === 'admin';
@@ -38,6 +38,17 @@ const AppLayout = () => {
              >
                 <Users size={22} />
              </button>
+             
+             {/* Pending sync indicator — shows when reports are waiting to be uploaded */}
+             {pendingCount > 0 && (
+               <div className="flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-full px-3 py-1.5 shadow-sm">
+                 <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse inline-block" />
+                 <span className="text-[10px] font-black text-orange-600 uppercase tracking-widest">
+                   {pendingCount} đang gửi
+                 </span>
+               </div>
+             )}
+
              <div className="w-11 h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-lg font-black shadow-lg shadow-indigo-100">
                 {(selectedStaff?.ho_ten || user?.ho_ten)?.charAt(0)}
              </div>

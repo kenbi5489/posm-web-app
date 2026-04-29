@@ -87,6 +87,25 @@ db.version(18).stores({
   adhocPoints: '++id, job_code, brand, pic_id, submitted_at, week, project'
 });
 
+// Version 19: Add `status` index to syncQueue to support atomic state machine:
+// 'pending' -> 'uploading' -> deleted
+// This prevents duplicate uploads when the app is backgrounded mid-upload.
+db.version(19).stores({
+  users: 'user_id, user_name, ho_ten, role',
+  posmData: '++id, job_code, brand, pic_id, status, district, week, pic, priority, project',
+  acceptanceData: '++id, job_code',
+  syncQueue: '++id, type, status, payload, timestamp',
+  checkins: '++id, job_code, pic_id, checkin_time, result',
+  adhocPoints: '++id, job_code, brand, pic_id, submitted_at, week, project'
+}).upgrade(async tx => {
+  // Reset any stuck 'uploading' tasks back to 'pending' (from a previous crash)
+  await tx.table('syncQueue').toCollection().modify(task => {
+    if (!task.status || task.status === 'uploading') {
+      task.status = 'pending';
+    }
+  });
+});
+
 export const masterReset = async () => {
   await db.delete();
   localStorage.clear();

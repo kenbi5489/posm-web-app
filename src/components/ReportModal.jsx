@@ -272,6 +272,7 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
 
       await db.syncQueue.add({
         type: 'REPORT_POSM',
+        status: 'pending',
         payload: payload,
         timestamp: Date.now()
       });

@@ -683,77 +683,116 @@ export const useSync = (user) => {
     }
   }, [pullData]);
 
-  // Background processor for guaranteed delivery
+  // ─── Background Queue Processor (Atomic State Machine) ─────────────────────
+  // STATE: pending → uploading → [deleted on success] or [reset to pending on fail]
+  // 
+  // WHY ATOMIC: With mode:'no-cors', fetch() always resolves (opaque response).
+  // We cannot know if GAS succeeded. So we use a DB-level lock:
+  //   1. Mark task as 'uploading' BEFORE sending → other flush calls see the lock
+  //   2. Delete AFTER fetch resolves → minimises duplicate window to ~network RTT
+  //   3. On app restart, 'uploading' tasks are reset to 'pending' by db.version(19).upgrade()
+  //      and server-side report_id dedup on GAS prevents the rare double-write
   const flushQueue = useCallback(async () => {
     if (isFlushingQueue) {
-      console.log('[SyncQueue] Flush already in progress, skipping...');
+      console.log('[SyncQueue] Already flushing, skipping duplicate call');
       return;
     }
     isFlushingQueue = true;
+
     try {
-      const q = await db.syncQueue.toArray();
-      setPendingCount(q.length);
+      // 1. On startup, recover any tasks stuck in 'uploading' from a previous crash
+      const stuckTasks = await db.syncQueue.where('status').equals('uploading').toArray();
+      if (stuckTasks.length > 0) {
+        console.warn(`[SyncQueue] Found ${stuckTasks.length} stuck tasks, resetting to pending`);
+        await db.syncQueue.where('status').equals('uploading').modify({ status: 'pending' });
+      }
+
+      // 2. Fetch all pending tasks
+      const pendingTasks = await db.syncQueue.where('status').equals('pending').toArray();
       
-      if (q.length === 0) return;
-      console.log(`[SyncQueue] Flushing ${q.length} pending reports...`);
-      for (const task of q) {
+      // Update UI count
+      const totalInQueue = await db.syncQueue.count();
+      setPendingCount(totalInQueue);
+
+      if (pendingTasks.length === 0) return;
+      console.log(`[SyncQueue] Flushing ${pendingTasks.length} pending reports...`);
+
+      for (const task of pendingTasks) {
         if (task.type === 'REPORT_POSM') {
           try {
-            // Send to GAS
-            await fetch("https://script.google.com/macros/s/AKfycbxCo0nA6Ikxfuucow1-v4MViGX04UT8s5oiEIUI6GFAN9ESftVW2Wql3w7XRn474JAvDQ/exec", {
-              method: 'POST',
-              mode: 'no-cors',
-              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-              body: JSON.stringify(task.payload)
-            });
-            // Remove from queue ONLY if fetch succeeds (no-cors always resolves unless network failure)
+            // 3. ATOMIC LOCK: Mark as 'uploading' before sending
+            //    Any concurrent flush call will skip this task
+            await db.syncQueue.update(task.id, { status: 'uploading' });
+
+            // 4. Send to GAS (no-cors always resolves unless network is completely down)
+            await fetch(
+              "https://script.google.com/macros/s/AKfycbxCo0nA6Ikxfuucow1-v4MViGX04UT8s5oiEIUI6GFAN9ESftVW2Wql3w7XRn474JAvDQ/exec",
+              {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(task.payload)
+              }
+            );
+
+            // 5. Only delete AFTER fetch resolves successfully
             await db.syncQueue.delete(task.id);
-            console.log(`[SyncQueue] Uploaded and cleared task ${task.id}`);
+            console.log(`[SyncQueue] ✓ Uploaded and cleared task ${task.id} (report_id: ${task.payload?.report_id})`);
+
           } catch (fetchErr) {
-            console.warn(`[SyncQueue] Failed to upload task ${task.id}, network might be down. Stopping flush.`, fetchErr);
-            break; // Stop flushing the queue if network error occurs to preserve order
+            // 6. Network truly down → reset back to 'pending' so it retries next tick
+            console.warn(`[SyncQueue] Network error on task ${task.id}, resetting to pending`, fetchErr);
+            await db.syncQueue.update(task.id, { status: 'pending' });
+            break; // Stop trying further tasks — preserve order
           }
+        } else {
+          // Unknown task types: just delete to prevent queue bloat
+          await db.syncQueue.delete(task.id);
         }
       }
-      
-      // Update pending count after flush attempt
-      const remainingQ = await db.syncQueue.toArray();
-      setPendingCount(remainingQ.length);
-      
+
+      // 7. Update pending count after flush
+      const remaining = await db.syncQueue.count();
+      setPendingCount(remaining);
+
     } catch (err) {
-      console.warn('[SyncQueue] Flush failed, will retry next tick:', err);
+      console.warn('[SyncQueue] Flush encountered error, will retry next tick:', err);
     } finally {
       isFlushingQueue = false;
     }
-  }, []);
+  }, []); // ← EMPTY deps: flushQueue never changes identity, avoiding effect re-runs
 
-  // Auto-sync: full sync on login (every 20 min), acceptance-only every 3 min
+  // ─── Auto-sync intervals ──────────────────────────────────────────────────
   useEffect(() => {
     if (!user) return;
+
+    // Initial data load + delayed queue flush (avoid competing with pullData on mount)
     pullData();
-    // Delay flush queue to avoid concurrently hitting GAS with pullData on mount
-    setTimeout(flushQueue, 3000); 
-    
-    // Background interval to keep pushing queue even while app is idle
-    const queueInterval = setInterval(flushQueue, 15000); // Check every 15s
-    const fullInterval = setInterval(pullData, FULL_SYNC_INTERVAL_MS);
-    const accInterval  = setInterval(pullAcceptanceOnly, ACCEPTANCE_SYNC_INTERVAL_MS);
-    
-    // Listen for immediate sync triggers from components (like ReportModal)
+    const initialFlushTimer = setTimeout(flushQueue, 2000);
+
+    // Periodic intervals
+    const queueInterval = setInterval(flushQueue, 15000);         // flush queue every 15s
+    const fullInterval  = setInterval(pullData, FULL_SYNC_INTERVAL_MS);
+    const accInterval   = setInterval(pullAcceptanceOnly, ACCEPTANCE_SYNC_INTERVAL_MS);
+
+    // Immediate flush when a report is submitted or network comes back
     window.addEventListener('trigger-sync', flushQueue);
     window.addEventListener('online', flushQueue);
-    
-    // Warn user before closing tab if there are pending items
+
+    // Warn user if they try to close with pending items
     const handleBeforeUnload = (e) => {
-      if (pendingCount > 0) {
-        e.preventDefault();
-        e.returnValue = `Hệ thống đang đồng bộ ${pendingCount} báo cáo. Bạn có chắc muốn thoát? Dữ liệu chưa đồng bộ sẽ được lưu lại nhưng cần mở ứng dụng sau để gửi tiếp.`;
-        return e.returnValue;
-      }
+      // Read count directly from DB to get real-time value without state dependency
+      db.syncQueue.count().then(count => {
+        if (count > 0) {
+          e.preventDefault();
+          e.returnValue = `Hệ thống đang chờ đồng bộ ${count} báo cáo. Mở lại ứng dụng để hoàn tất gửi dữ liệu.`;
+        }
+      });
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => { 
+      clearTimeout(initialFlushTimer);
       clearInterval(queueInterval); 
       clearInterval(fullInterval); 
       clearInterval(accInterval); 
@@ -761,7 +800,10 @@ export const useSync = (user) => {
       window.removeEventListener('online', flushQueue);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [user?.user_id, pullData, pullAcceptanceOnly, flushQueue, pendingCount]);
+  // pendingCount intentionally excluded — adding it would re-run this effect on every
+  // flush cycle, causing intervals to reset and sending duplicate requests.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.user_id, pullData, pullAcceptanceOnly, flushQueue]);
 
   return { syncing, pendingCount, pullData, clearAndResync, pullAcceptanceOnly, flushQueue };
 };
