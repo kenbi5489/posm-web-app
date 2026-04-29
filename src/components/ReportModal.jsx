@@ -247,7 +247,10 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         image1Type: images?.[0]?.type || "image/jpeg",
         image2: images?.[1]?.base64 || "",
         image2Name: images?.[1]?.name || "image2.jpg",
-        image2Type: images?.[1]?.type || "image/jpeg"
+        image2Type: images?.[1]?.type || "image/jpeg",
+        
+        // UNIQUE ID for anti-duplicate
+        report_id: `REP_${item.job_code || 'ADHOC'}_${Date.now()}`
       };
 
       // ── OPTIMISTIC UPDATE ─────────────────────────────────────────────
@@ -267,13 +270,15 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         }
       }
 
-      // 3. Push to background sync queue instead of synchronous fetch
-      // This prevents iOS Safari network timeout errors and duplicate submissions
       await db.syncQueue.add({
         type: 'REPORT_POSM',
         payload: payload,
         timestamp: Date.now()
       });
+      
+      // Trigger background sync immediately to reduce the window where the user might background the app before the sync interval ticks
+      // We do this by dispatching a custom event that useSync will listen to, or we could consume useSyncContext directly.
+      window.dispatchEvent(new Event('trigger-sync'));
       
       setLoading(false);
 

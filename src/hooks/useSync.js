@@ -739,6 +739,10 @@ export const useSync = (user) => {
     const fullInterval = setInterval(pullData, FULL_SYNC_INTERVAL_MS);
     const accInterval  = setInterval(pullAcceptanceOnly, ACCEPTANCE_SYNC_INTERVAL_MS);
     
+    // Listen for immediate sync triggers from components (like ReportModal)
+    window.addEventListener('trigger-sync', flushQueue);
+    window.addEventListener('online', flushQueue);
+    
     // Warn user before closing tab if there are pending items
     const handleBeforeUnload = (e) => {
       if (pendingCount > 0) {
@@ -753,9 +757,11 @@ export const useSync = (user) => {
       clearInterval(queueInterval); 
       clearInterval(fullInterval); 
       clearInterval(accInterval); 
+      window.removeEventListener('trigger-sync', flushQueue);
+      window.removeEventListener('online', flushQueue);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [user?.user_id, pullData, pullAcceptanceOnly, flushQueue, pendingCount]);
 
-  return { syncing, pendingCount, pullData, clearAndResync, pullAcceptanceOnly };
+  return { syncing, pendingCount, pullData, clearAndResync, pullAcceptanceOnly, flushQueue };
 };
