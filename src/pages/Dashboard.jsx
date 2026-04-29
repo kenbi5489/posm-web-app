@@ -80,8 +80,18 @@ const Dashboard = () => {
         setRawItems(items); 
         setAdhocRawItems(adhocItems); 
 
-        // Default to 'All' weeks per user request
-        setWeek(['All']);
+        // Auto-select the most recent week that has actual data for this user
+        // "Most recent" = highest week number present in filtered items
+        const weeksInUserData = [...new Set(items.map(i => i.week))]
+          .filter(w => Boolean(w) && !w.includes('??'))
+          .sort((a, b) => {
+            const numA = parseInt(String(a).match(/\d+/)?.[0]) || 0;
+            const numB = parseInt(String(b).match(/\d+/)?.[0]) || 0;
+            return numB - numA; // descending: highest week first
+          });
+
+        const defaultWeek = weeksInUserData.length > 0 ? [weeksInUserData[0]] : ['All'];
+        setWeek(defaultWeek);
 
         setDiag({ 
           user: `${pidNorm} - ${pNameNorm}`, 

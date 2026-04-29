@@ -163,9 +163,8 @@ const ListView = () => {
   const [selectedMonth, setSelectedMonth] = useState(() => {
     try { return JSON.parse(sessionStorage.getItem('lv_month')) || ['All']; } catch { return ['All']; }
   });
-  const [week, setWeek] = useState(() => {
-    try { return JSON.parse(sessionStorage.getItem('lv_week')) || ['All']; } catch { return ['All']; }
-  });
+  const [week, setWeek] = useState(['All']); // Will be set to latest data week after load
+  const [weekInitialized, setWeekInitialized] = useState(false); // track first-load auto-select
   const [selectedBrand, setSelectedBrand] = useState(['All']);
   const [selectedPic, setSelectedPic] = useState(['All']);
   const [posmFilter, setPosmFilter] = useState('all'); // 'all' | 'yes' | 'no'
@@ -210,7 +209,18 @@ const ListView = () => {
         }
         setListItems(filteredByPic);
 
-        // Removing auto-select logic to default to All weeks/months per user request
+        // Auto-select the most recent week with data on first load (skip if sessionStorage has saved preference)
+        const savedWeek = (() => { try { return JSON.parse(sessionStorage.getItem('lv_week')); } catch { return null; } })();
+        if (!weekInitialized && !savedWeek) {
+          const weeksInData = [...new Set(filteredByPic.map(i => i.week))]
+            .filter(w => Boolean(w) && !w.includes('??'))
+            .sort((a, b) => (parseInt(String(b).match(/\d+/)?.[0]) || 0) - (parseInt(String(a).match(/\d+/)?.[0]) || 0));
+          if (weeksInData.length > 0) setWeek([weeksInData[0]]);
+          setWeekInitialized(true);
+        } else if (savedWeek) {
+          setWeek(savedWeek);
+          setWeekInitialized(true);
+        }
       } catch (err) {
         console.error('ListView Load Error:', err);
       } finally {
