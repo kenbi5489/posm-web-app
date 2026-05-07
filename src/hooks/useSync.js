@@ -431,12 +431,25 @@ export const useSync = (user) => {
       let transformed = Array.from(assignmentsMap.values());
 
       if (user.role === 'staff') {
-        // STRICT RULE: Keep ONLY the top 2 newest weeks (including 'Done' items)
-        // Use isSameWeek() for fuzzy week-number match instead of exact string comparison
-        // (e.g. "W15" vs "W15 (T.4)" must both match → avoids silently dropping valid rows)
-        const latestTwoWeeks = weeks.slice(0, 2);
-        transformed = transformed.filter(i => latestTwoWeeks.some(w => isSameWeek(i.week, w)));
-        console.log(`[Sync] Strict sliding window: Keeping only ${latestTwoWeeks.join(', ')}`);
+        // STRICT RULE: Keep ONLY the top 2 newest weeks (including 'Done' items) for the current user
+        const pidNorm = String(user.user_id).trim().toLowerCase();
+        const pName = stripAccents(user.ho_ten || '').toLowerCase().trim();
+        
+        const myTasks = transformed.filter(i => {
+            const mPId = String(i.pic_id || '').trim().toLowerCase();
+            const mPName = stripAccents(i.pic || '').toLowerCase().trim();
+            return (pidNorm && mPId && mPId === pidNorm) || (pName && mPName && mPName === pName);
+        });
+
+        const myWeeks = [...new Set(myTasks.map(a => a.week))].sort((a, b) => {
+          const numA = parseInt(String(a).match(/\d+/)?.[0]) || 0;
+          const numB = parseInt(String(b).match(/\d+/)?.[0]) || 0;
+          return numB - numA; // Newest first
+        });
+
+        const latestTwoWeeks = myWeeks.slice(0, 2);
+        transformed = myTasks.filter(i => latestTwoWeeks.some(w => isSameWeek(i.week, w)));
+        console.log(`[Sync] Strict sliding window: Keeping only ${latestTwoWeeks.join(', ')} for user ${user.user_id}`);
       }
       // ------ OPTIMISTIC UI PRESERVATION ------
       // Do not overwrite "Done" status with stale "On-going" status from Google Sheets

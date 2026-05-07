@@ -80,8 +80,8 @@ const Dashboard = () => {
         setRawItems(items); 
         setAdhocRawItems(adhocItems); 
 
-        // Auto-select the most recent week that has actual data for this user
-        // "Most recent" = highest week number present in filtered items
+        // Auto-select: ưu tiên tuần hiện tại theo rule (Fri→Thu)
+        // Fallback về tuần cao nhất trong data nếu chưa có data cho tuần hiện tại
         const weeksInUserData = [...new Set(items.map(i => i.week))]
           .filter(w => Boolean(w) && !w.includes('??'))
           .sort((a, b) => {
@@ -90,7 +90,11 @@ const Dashboard = () => {
             return numB - numA; // descending: highest week first
           });
 
-        const defaultWeek = weeksInUserData.length > 0 ? [weeksInUserData[0]] : ['All'];
+        const currentWeekLabel = getCurrentWeekLabel(); // e.g. "W19"
+        const hasCurrentWeekData = weeksInUserData.some(w => isSameWeek(w, currentWeekLabel));
+        const defaultWeek = hasCurrentWeekData
+          ? [currentWeekLabel]
+          : weeksInUserData.length > 0 ? [weeksInUserData[0]] : ['All'];
         setWeek(defaultWeek);
 
         setDiag({ 
@@ -217,7 +221,11 @@ const Dashboard = () => {
               <p className="text-xs font-bold text-amber-700 mt-1 opacity-80">Bạn đang có <span className="text-amber-900 text-sm font-black underline">{stats.priorityPending}</span> điểm ưu tiên chưa thực hiện.</p>
             </div>
           </div>
-          <Link to="/list" onClick={() => { sessionStorage.setItem('lv_status', 'pending'); sessionStorage.setItem('lv_week', 'All'); }} className="w-full bg-white text-amber-600 font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm border border-amber-100">
+          <Link to="/list" onClick={() => { 
+            const targetWeek = week.includes('All') ? [getCurrentWeekLabel()] : week;
+            sessionStorage.setItem('lv_status', 'pending'); 
+            sessionStorage.setItem('lv_week', JSON.stringify(targetWeek)); 
+          }} className="w-full bg-white text-amber-600 font-black py-4 rounded-2xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm border border-amber-100">
             Xem danh sách ngay <TrendingUp size={14} />
           </Link>
         </motion.div>

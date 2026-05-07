@@ -271,11 +271,15 @@ const ListView = () => {
       );
     }
     
-    // Sort all filtered items by week descending before display slicing
+    // Sort: week descending, priority items first within same week
     filtered.sort((a, b) => {
       const numA = parseInt(String(a.week).match(/\d+/)?.[0]) || 0;
       const numB = parseInt(String(b.week).match(/\d+/)?.[0]) || 0;
-      return numB - numA;
+      if (numB !== numA) return numB - numA;
+      // Same week: priority first
+      if (b.priority && !a.priority) return 1;
+      if (a.priority && !b.priority) return -1;
+      return 0;
     });
 
     return { 

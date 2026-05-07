@@ -270,12 +270,25 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
         }
       }
 
-      await db.syncQueue.add({
-        type: 'REPORT_POSM',
-        status: 'pending',
-        payload: payload,
-        timestamp: Date.now()
-      });
+      // 2. CHECK DEDUP IN QUEUE (Chống Double Click / Spam Click)
+      // Kiểm tra xem job_code này đã có trong hàng đợi chưa (đang pending hoặc uploading)
+      // Tránh việc user bấm đúp tạo ra 2 lệnh gửi liên tiếp
+      const existingQueueItems = await db.syncQueue.toArray();
+      const isAlreadyInQueue = existingQueueItems.some(q => 
+        q.type === 'REPORT_POSM' && 
+        q.payload?.jobCode === adHocJobCode
+      );
+
+      if (!isAlreadyInQueue) {
+        await db.syncQueue.add({
+          type: 'REPORT_POSM',
+          status: 'pending',
+          payload: payload,
+          timestamp: Date.now()
+        });
+      } else {
+        console.warn(`[Submit] Job ${adHocJobCode} is already in sync queue. Skipping duplicate queue addition.`);
+      }
       
       // Trigger background sync immediately to reduce the window where the user might background the app before the sync interval ticks
       // We do this by dispatching a custom event that useSync will listen to, or we could consume useSyncContext directly.
