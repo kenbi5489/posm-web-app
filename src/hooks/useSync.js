@@ -249,6 +249,7 @@ export const useSync = (user) => {
           priority: isPriority,
           project: getValFast(row, ['Project', 'project', 'Dự án', 'Du an'], headerMapData) || localProjectMap.get(String(jobCodeRaw).toUpperCase().trim()) || '',
           portal_id: getValFast(row, ['Tài khoản Portal', 'Tai khoan Portal', 'Portal ID'], headerMapData) || '',
+          requirement: getValFast(row, ['Yêu cầu', 'Yeu cau', 'Requirement'], headerMapData) || '',
         });
 
         if (!jobCodeToIndex.has(jobCode)) jobCodeToIndex.set(jobCode, []);

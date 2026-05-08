@@ -166,7 +166,7 @@ const AlertItem = ({ severity, text }) => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const OverviewDashboard = () => {
-  const { user, selectedStaff, lastSync } = useAuth();
+  const { user, selectedStaff, lastSync, selectStaff } = useAuth();
   const [allData, setAllData] = useState([]);
   const [adhocData, setAdhocData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -416,6 +416,7 @@ const OverviewDashboard = () => {
       const sAssigned = staffFiltered.filter(i => !String(i.job_code || '').toUpperCase().includes('NEW_')).length;
       return {
         name,
+        id: staffPoints[0]?.pic_id, // Capture ID for selection
         done: sDone,
         percent: Math.min(100, Math.round((sDone / 75) * 100)),
         efficiency: sAssigned > 0 ? Math.round((staffFiltered.filter(i => i.status === 'Done' && !String(i.job_code || '').toUpperCase().includes('NEW_')).length / sAssigned) * 100) : 0
@@ -728,7 +729,11 @@ const OverviewDashboard = () => {
                     </div>
                     <div className="space-y-6 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                         {kpis.staffStats.map((s, idx) => (
-                            <div key={s.name} className="flex items-center gap-4">
+                            <div 
+                                key={s.name} 
+                                onClick={() => selectStaff({ user_id: s.id, ho_ten: s.name, role: 'staff' })}
+                                className="flex items-center gap-4 cursor-pointer hover:bg-indigo-50/50 p-2 -m-2 rounded-2xl transition-all"
+                            >
                                 <div className={`w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-[10px] font-black ${idx === 0 ? 'bg-amber-100 text-amber-600' : 'bg-slate-50 text-slate-400'}`}>
                                     #{idx + 1}
                                 </div>

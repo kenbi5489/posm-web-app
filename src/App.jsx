@@ -153,7 +153,8 @@ const AdminRoute = ({ children }) => {
 };
 
 const Home = () => {
-  const { user } = useAuth();
+  const { user, selectedStaff } = useAuth();
+  if (user?.role === 'admin' && selectedStaff) return <Dashboard />;
   return user?.role === 'admin' ? <OverviewDashboard /> : <Dashboard />;
 };
 

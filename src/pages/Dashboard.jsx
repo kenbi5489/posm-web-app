@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import { useSyncContext } from '../context/SyncContext';
-import { CheckCircle2, CircleDashed, LayoutGrid, MapPin, TrendingUp, Zap, Star } from 'lucide-react';
+import { CheckCircle2, CircleDashed, LayoutGrid, MapPin, TrendingUp, Zap, Star, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import ReportModal from '../components/ReportModal';
@@ -12,7 +12,7 @@ import MultiSelect from '../components/MultiSelect';
 const stripAccents = (s) => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D') || '';
 
 const Dashboard = () => {
-  const { user, selectedStaff, lastSync, localRefreshTick } = useAuth();
+  const { user, selectedStaff, lastSync, localRefreshTick, selectStaff } = useAuth();
   const { syncing, pullData, clearAndResync, pullAcceptanceOnly } = useSyncContext();
   const [week, setWeek] = useState(['All']);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -210,6 +210,30 @@ const Dashboard = () => {
 
   return (
     <div className="p-6 space-y-8 animate-fade-in pb-24">
+      {user?.role === 'admin' && selectedStaff && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-indigo-900 text-white p-5 -mx-6 -mt-6 mb-8 flex items-center justify-between shadow-xl relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-16 -mt-16" />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/30">
+              <Eye size={24} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Chế độ giám sát</p>
+              <p className="text-base font-black tracking-tight">Đang xem: {selectedStaff.ho_ten}</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => selectStaff(null)}
+            className="bg-white text-indigo-900 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all relative z-10"
+          >
+            Thoát
+          </button>
+        </motion.div>
+      )}
       {stats.priorityPending > 0 && (
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-amber-50 border-2 border-amber-200 p-6 rounded-[2.5rem] shadow-lg shadow-amber-100/50 flex flex-col gap-4">
           <div className="flex items-center gap-4">

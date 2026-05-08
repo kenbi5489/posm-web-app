@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft, Link as LinkIcon, MessageCircle, TriangleAlert, FileEdit, Trophy } from 'lucide-react';
+import { MapPin, Navigation, Calendar, Hash, UserCircle, Briefcase, CheckCircle, ChevronLeft, Link as LinkIcon, MessageCircle, TriangleAlert, FileEdit, Trophy, FileText } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import ReportModal from '../components/ReportModal';
@@ -156,6 +156,11 @@ const LocationDetail = () => {
                 return 'Đang chờ...';
                 })()}
             />
+            {item.requirement && (
+              <div className="md:col-span-2">
+                <DetailRow icon={<FileText className="text-indigo-500" />} label="Yêu cầu" value={item.requirement} />
+              </div>
+            )}
           </div>
           
           <div className="pt-6 border-t border-slate-50 flex items-center gap-4">
