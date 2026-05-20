@@ -5,6 +5,7 @@ import { X, CheckCircle, AlertCircle, Loader2, Image as ImageIcon, MessageSquare
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../services/db';
 import { getCurrentWeekLabel } from '../utils/weekUtils';
+import PosmGuideCard from './PosmGuideCard';
 
 // --- CONFIGURATION ---
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxCo0nA6Ikxfuucow1-v4MViGX04UT8s5oiEIUI6GFAN9ESftVW2Wql3w7XRn474JAvDQ/exec";
@@ -505,6 +506,12 @@ const ReportModal = ({ isOpen, onClose, item, user, onSuccess }) => {
                     </div>
                   </div>
                 </div>
+
+                <PosmGuideCard 
+                  brand={isAdHoc ? adHocBrand.trim() : (item?.brand || "")} 
+                  locationType={item?.location_type || item?.Location_Type || ""} 
+                  onPreviewImage={setPreviewImage} 
+                />
 
                 <div className="space-y-4">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Hình ảnh thực tế <span className="text-rose-500">*</span></label>
