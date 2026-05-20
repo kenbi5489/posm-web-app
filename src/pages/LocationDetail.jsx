@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import ReportModal from '../components/ReportModal';
 
+import { fetchPosmGuide } from '../services/posmGuideService';
+
 const MALL_KEYWORDS = ['aeon', 'vincom', 'lotte', 'big c', 'bigc', 'coopxtra', 'coopmart',
   'van hanh', 'vạn hạnh', 'gigamall', 'thiso', 'crescent', 'vivo city', 'sc vivo',
   'tttm', 'trung tâm thương mại', 'trung tam thuong mai', 'parkson', 'nowzone',
@@ -46,6 +48,14 @@ const LocationDetail = () => {
       if (found) {
         const acc = await db.acceptanceData.where({ job_code: jobCode }).first();
         setAcceptance(acc);
+
+        // Start background prefetch of POSM Guide immediately (takes ~4s in background)
+        // so that by the time the user clicks "Báo cáo" (usually after 5s+ of reviewing),
+        // the guide data is already cached and loads instantly.
+        const locType = isMall(found) ? 'Mall' : 'Standalone';
+        fetchPosmGuide(found.brand, locType).catch(err => 
+          console.warn("Background prefetch failed:", err)
+        );
       }
       setLoading(false);
     };
