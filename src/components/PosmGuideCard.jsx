@@ -3,12 +3,29 @@ import { fetchPosmGuide } from '../services/posmGuideService';
 import { Loader2, Info, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const getHighResUrl = (url) => {
+const getDirectCdnUrl = (url, width = 400) => {
   if (!url) return '';
-  // Convert sz=w400 to sz=w1600 for lightbox
-  if (url.includes('sz=')) {
-    return url.replace(/sz=w\d+/, 'sz=w1600');
+  
+  // If it's already a direct Google CDN link, just adjust size
+  if (url.includes('lh3.googleusercontent.com/d/')) {
+    const baseUrl = url.split('=')[0];
+    return `${baseUrl}=w${width}`;
   }
+
+  // Try to extract Google Drive file ID
+  // Format 1: /d/[ID]/
+  const dMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) {
+    return `https://lh3.googleusercontent.com/d/${dMatch[1]}=w${width}`;
+  }
+
+  // Format 2: ?id=[ID] or &id=[ID]
+  const idMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    return `https://lh3.googleusercontent.com/d/${idMatch[1]}=w${width}`;
+  }
+
+  // Fallback for non-Google Drive URLs
   return url;
 };
 
@@ -27,7 +44,6 @@ const PosmGuideCard = ({ brand, locationType, onPreviewImage }) => {
           if (result.data && result.data.length > 0) {
             const firstItem = result.data[0];
             
-            // For thumbnails, ALWAYS prefer thumbnail_url which handles Drive images correctly via lh3.googleusercontent.com
             let rawThumb = typeof firstItem.primary_image_url === 'object' && firstItem.primary_image_url !== null 
               ? (firstItem.primary_image_url.thumbnail_url || firstItem.primary_image_url.view_url)
               : firstItem.primary_image_url;
@@ -37,14 +53,17 @@ const PosmGuideCard = ({ brand, locationType, onPreviewImage }) => {
               if (typeof ref === 'object' && ref !== null) {
                 rThumb = ref.thumbnail_url || ref.view_url;
               }
-              return { thumb: rThumb, full: getHighResUrl(rThumb) };
+              return { 
+                thumb: getDirectCdnUrl(rThumb, 400), 
+                full: getDirectCdnUrl(rThumb, 1200) 
+              };
             });
 
             setGuideData({
               brand: firstItem.brand || result.brand,
               location_type: firstItem.location_type,
-              primary_image_thumb: rawThumb,
-              primary_image_full: getHighResUrl(rawThumb),
+              primary_image_thumb: getDirectCdnUrl(rawThumb, 400),
+              primary_image_full: getDirectCdnUrl(rawThumb, 1200),
               ref_images: refs,
               checklists: firstItem.checklists || []
             });
@@ -53,9 +72,12 @@ const PosmGuideCard = ({ brand, locationType, onPreviewImage }) => {
              setGuideData({
                brand: result.brand,
                location_type: result.location_type,
-               primary_image_thumb: result.primary_image_url,
-               primary_image_full: result.primary_image_url,
-               ref_images: (result.ref_images || []).map(url => ({ thumb: url, full: url })),
+               primary_image_thumb: getDirectCdnUrl(result.primary_image_url, 400),
+               primary_image_full: getDirectCdnUrl(result.primary_image_url, 1200),
+               ref_images: (result.ref_images || []).map(url => ({ 
+                 thumb: getDirectCdnUrl(url, 400), 
+                 full: getDirectCdnUrl(url, 1200) 
+               })),
                checklists: result.checklists || []
              });
           } else {
