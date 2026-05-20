@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../services/db';
 import { useAuth } from '../context/AuthContext';
-import { Search, ExternalLink, CheckCircle2, Clock, MapPin, Hash, Zap, RefreshCw, User } from 'lucide-react';
+import { Search, ExternalLink, CheckCircle2, Clock, MapPin, Hash, Zap, RefreshCw, User, MessageSquare, SlidersHorizontal, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MultiSelect from '../components/MultiSelect';
@@ -52,6 +52,17 @@ const AdminListItem = ({ item }) => {
             )}
             {item.district && <span className='shrink-0 text-[10px] font-bold bg-slate-50 text-slate-500 px-2.5 py-1.5 rounded-full border border-slate-100'>{item.district}</span>}
           </div>
+
+          {/* Ghi chú từ PIC */}
+          {item.acceptance_note && item.acceptance_note.trim().length > 0 && (
+            <div className='flex items-start gap-2 mt-1 bg-amber-50 border border-amber-100 rounded-2xl px-3 py-2.5'>
+              <MessageSquare size={13} className='shrink-0 text-amber-400 mt-0.5' />
+              <div>
+                <p className='text-[9px] font-black text-amber-400 uppercase tracking-widest mb-0.5'>Ghi chú PIC</p>
+                <p className='text-[11px] font-semibold text-amber-800 leading-snug line-clamp-2'>{item.acceptance_note}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Actions (Images) */}
@@ -131,6 +142,17 @@ const ListItem = ({ item }) => {
             {isDone && <span className={`text-[11px] font-black px-3 py-1.5 rounded-full border uppercase tracking-widest ${hasPosm ? 'bg-teal-50 text-teal-700 border-teal-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>{hasPosm ? '\u2713 C\u00d3 POSM' : '\u2717 KH\u00d4NG POSM'}</span>}
             {isMall && <span className='text-[10px] font-black bg-indigo-50 text-indigo-600 px-2.5 py-1.5 rounded-full border border-indigo-100 uppercase tracking-widest'>MALL</span>}
           </div>
+
+          {/* Ghi chú từ PIC */}
+          {item.acceptance_note && item.acceptance_note.trim().length > 0 && (
+            <div className='flex items-start gap-2 mt-1 bg-amber-50 border border-amber-100 rounded-2xl px-3 py-2.5'>
+              <MessageSquare size={13} className='shrink-0 text-amber-400 mt-0.5' />
+              <div>
+                <p className='text-[9px] font-black text-amber-400 uppercase tracking-widest mb-0.5'>Ghi chú PIC</p>
+                <p className='text-[11px] font-semibold text-amber-800 leading-snug line-clamp-2'>{item.acceptance_note}</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Side: Actions */}
@@ -171,6 +193,8 @@ const ListView = () => {
   const [displayCount, setDisplayCount] = useState(() => parseInt(sessionStorage.getItem('lv_count')) || 50);
   const [statusTab, setStatusTab] = useState(() => sessionStorage.getItem('lv_status') || 'pending');
   const [isLoading, setIsLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [isFilterAnimating, setIsFilterAnimating] = useState(false);
 
   useEffect(() => {
     setStatusTab(sessionStorage.getItem('lv_status') || 'pending');
@@ -312,100 +336,182 @@ const ListView = () => {
   }, [filteredItems, displayCount]);
 
 
+  // Compute active filter count (excluding 'All' defaults)
+  const activeFilterCount = [
+    !selectedMonth.includes('All'),
+    !week.includes('All'),
+    !selectedBrand.includes('All'),
+    isAdmin && !selectedPic.includes('All'),
+    isAdmin && statusTab === 'done' && posmFilter !== 'all',
+  ].filter(Boolean).length;
+
+  const resetAllFilters = () => {
+    setSelectedMonth(['All']);
+    setWeek(['All']);
+    setSelectedBrand(['All']);
+    setSelectedPic(['All']);
+    setPosmFilter('all');
+  };
+
   return (
     <div className="flex flex-col h-full bg-slate-50/30">
 
       {/* ── HEADER ── */}
-      <div className="bg-indigo-600 pt-6 pb-10 px-5 rounded-b-[3.5rem] shadow-xl relative z-20">
-        <div className="absolute inset-0 rounded-b-[3.5rem] overflow-hidden pointer-events-none">
+      <div className="bg-indigo-600 pt-5 pb-10 px-5 rounded-b-[3rem] shadow-xl relative z-20">
+        <div className="absolute inset-0 rounded-b-[3rem] overflow-hidden pointer-events-none">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32 blur-3xl" />
         </div>
 
-        {/* Title */}
-        <div className="relative mb-5">
-          <p className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1">
-            {isAdmin ? 'Tổng quan nghiệm thu' : 'Tuyến đường của bạn'}
-          </p>
-          <h2 className="text-2xl font-black text-white tracking-tight uppercase">
-            {isAdmin ? 'DANH SÁCH NGHIỆM THU' : 'DANH SÁCH TUYẾN ĐƯỜNG'}
-          </h2>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-4">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-white/40" size={18} />
-          <input
-            type="text"
-            placeholder={isAdmin ? 'Tìm brand, địa chỉ, nhân viên...' : 'Tìm kiếm...'}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-14 pr-5 py-4 bg-white/10 border border-white/20 rounded-2xl text-white text-sm font-bold placeholder-white/30 focus:outline-none focus:bg-white/15"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="space-y-2.5 relative z-50 mb-4">
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-            <MultiSelect label="Tháng" theme="dark" options={uniqueMonths} value={selectedMonth} onChange={setSelectedMonth} />
-            <MultiSelect label="Tuần" theme="dark" options={uniqueWeeks} value={week} onChange={setWeek} />
-            <MultiSelect label="Brand" theme="dark" options={uniqueBrands} value={selectedBrand} onChange={setSelectedBrand} />
+        {/* Title row */}
+        <div className="relative flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-0.5">
+              {isAdmin ? 'Tổng quan nghiệm thu' : 'Tuyến đường của bạn'}
+            </p>
+            <h2 className="text-xl font-black text-white tracking-tight uppercase leading-tight">
+              {isAdmin ? 'DANH SÁCH NGHIỆM THU' : 'DANH SÁCH TUYẾN ĐƯỜNG'}
+            </h2>
           </div>
-          {isAdmin && (
-            <MultiSelect label="Nhân viên" theme="dark" options={uniquePics} value={selectedPic} onChange={setSelectedPic} />
-          )}
-
-          {/* POSM quick-filter — admin only, shown in Done tab */}
-          {isAdmin && statusTab === 'done' && (
-            <div className="flex gap-2">
-              {[
-                { key: 'all', label: 'Tất cả' },
-                { key: 'yes', label: '✓ Có POSM' },
-                { key: 'no',  label: '✗ Không POSM' },
-              ].map(opt => (
-                <button
-                  key={opt.key}
-                  onClick={() => setPosmFilter(opt.key)}
-                  className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
-                    ${posmFilter === opt.key
-                      ? opt.key === 'no' ? 'bg-rose-500 text-white shadow-md' : 'bg-white text-indigo-700 shadow-md'
-                      : 'bg-white/10 text-white/60 hover:bg-white/20'}`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Summary pill */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="flex items-center gap-1 text-[10px] font-black text-emerald-300 bg-white/10 px-2.5 py-1.5 rounded-full">
+              <CheckCircle2 size={10} /> {doneCount}
+            </span>
+            <span className="flex items-center gap-1 text-[10px] font-black text-amber-300 bg-white/10 px-2.5 py-1.5 rounded-full">
+              <Clock size={10} /> {pendingCount}
+            </span>
+          </div>
         </div>
 
-        {/* Status tabs */}
-        <div className="flex bg-white/10 p-1.5 rounded-2xl relative z-10 w-full shadow-inner mb-4">
+        {/* Status tabs — primary control */}
+        <div className="flex bg-white/10 p-1 rounded-2xl relative z-10 w-full shadow-inner mb-3">
           <button
             onClick={() => { setStatusTab('pending'); setPosmFilter('all'); }}
-            className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${statusTab === 'pending' ? 'bg-white text-indigo-600 shadow-md' : 'text-white/60'}`}
+            className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${
+              statusTab === 'pending' ? 'bg-white text-indigo-600 shadow-md' : 'text-white/60 hover:text-white/80'
+            }`}
           >
-            Cần làm
+            ⏳ Cần làm · {pendingCount}
           </button>
           <button
             onClick={() => setStatusTab('done')}
-            className={`flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${statusTab === 'done' ? 'bg-emerald-500 text-white shadow-md' : 'text-white/60'}`}
+            className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all ${
+              statusTab === 'done' ? 'bg-emerald-500 text-white shadow-md' : 'text-white/60 hover:text-white/80'
+            }`}
           >
-            Đã xong
+            ✓ Đã xong · {doneCount}
           </button>
         </div>
 
+        {/* Search + Filter toggle */}
+        <div className="flex gap-2 mb-2 relative z-50">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40" size={16} />
+            <input
+              type="text"
+              placeholder={isAdmin ? 'Tìm brand, địa chỉ, nhân viên...' : 'Tìm kiếm...'}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-11 pr-4 py-3 bg-white/10 border border-white/15 rounded-xl text-white text-sm font-semibold placeholder-white/30 focus:outline-none focus:bg-white/15 focus:border-white/30"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className={`relative flex items-center gap-2 px-4 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest transition-all shrink-0 ${
+              showFilters || activeFilterCount > 0
+                ? 'bg-white text-indigo-700 shadow-md'
+                : 'bg-white/10 text-white/80 border border-white/15 hover:bg-white/20'
+            }`}
+          >
+            <SlidersHorizontal size={15} />
+            Lọc
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-400 text-white rounded-full text-[9px] font-black flex items-center justify-center shadow">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Collapsible filter panel */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              key="filter-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              onAnimationStart={() => setIsFilterAnimating(true)}
+              onAnimationComplete={() => setIsFilterAnimating(false)}
+              className={isFilterAnimating ? 'overflow-hidden' : 'overflow-visible'}
+            >
+              <div className="pt-1 pb-2 space-y-2 relative z-50">
+                {/* Row 1: Tháng + Tuần */}
+                <div className="grid grid-cols-2 gap-2">
+                  <MultiSelect label="Tháng" theme="dark" options={uniqueMonths} value={selectedMonth} onChange={setSelectedMonth} />
+                  <MultiSelect label="Tuần" theme="dark" options={uniqueWeeks} value={week} onChange={setWeek} />
+                </div>
+
+                {/* Row 2: Brand + Nhân viên (admin) */}
+                {isAdmin ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <MultiSelect label="Brand" theme="dark" options={uniqueBrands} value={selectedBrand} onChange={setSelectedBrand} />
+                    <MultiSelect label="Nhân viên" theme="dark" options={uniquePics} value={selectedPic} onChange={setSelectedPic} />
+                  </div>
+                ) : (
+                  <MultiSelect label="Brand" theme="dark" options={uniqueBrands} value={selectedBrand} onChange={setSelectedBrand} />
+                )}
+
+                {/* POSM filter — admin + done tab only */}
+                {isAdmin && statusTab === 'done' && (
+                  <div className="flex gap-2">
+                    {[
+                      { key: 'all', label: 'Tất cả POSM' },
+                      { key: 'yes', label: '✓ Có POSM' },
+                      { key: 'no',  label: '✗ Không POSM' },
+                    ].map(opt => (
+                      <button
+                        key={opt.key}
+                        onClick={() => setPosmFilter(opt.key)}
+                        className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                          posmFilter === opt.key
+                            ? opt.key === 'no' ? 'bg-rose-500 text-white shadow-md' : 'bg-white text-indigo-700 shadow-md'
+                            : 'bg-white/10 text-white/60 hover:bg-white/20'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Reset button */}
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={resetAllFilters}
+                    className="w-full py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-rose-300 border border-rose-300/30 hover:bg-rose-500/20 transition-all"
+                  >
+                    <X size={10} className="inline mr-1" />Xoá {activeFilterCount} bộ lọc
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Summary bar */}
-        <div className="flex items-center justify-between px-1 relative z-10">
+        <div className="flex items-center justify-between px-1 pt-1 relative z-10">
           <span className="text-[10px] font-black text-indigo-200 uppercase tracking-widest">
             {filteredItems.length} kết quả
           </span>
           {filteredItems.length > 0 && (
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 text-[10px] font-black text-emerald-300">
-                <CheckCircle2 size={11} /> {doneCount} xong
-              </span>
-              <span className="flex items-center gap-1 text-[10px] font-black text-amber-300">
-                <Clock size={11} /> {pendingCount} còn
-              </span>
+            <div className="flex items-center gap-2">
               <span className="text-[10px] font-black text-white bg-white/20 px-2.5 py-1 rounded-full">{pct}%</span>
             </div>
           )}
